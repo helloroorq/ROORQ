@@ -321,13 +321,6 @@ export default function Navbar() {
   return (
     <div className="w-full font-sans sticky top-0 z-50">
       {/* Top Scrolling Banner */}
-      <div className="bg-black text-white text-xs py-2 overflow-hidden whitespace-nowrap">
-        <div className="animate-marquee inline-block">
-          {[1,2,3,4,5,6,7,8].map((i) => (
-             <span key={i} className="mx-4 font-bold tracking-widest">EARLY BLACK FRIDAY DEALS NOW ON!</span>
-          ))}
-        </div>
-      </div>
 
       {/* Main Header */}
       <div className="border-b border-gray-200 bg-white relative">
