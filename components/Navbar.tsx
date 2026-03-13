@@ -124,24 +124,22 @@ export default function Navbar() {
   type CartItem = { quantity?: number };
 
   const handleUserMenuClick = async () => {
-    // Always attempt to resolve auth state when the icon is tapped/clicked
-    if (user) {
-      setIsUserMenuOpen((prev) => !prev);
-      return;
-    }
+    // Toggle menu immediately for responsive feel
+    setIsUserMenuOpen((prev) => !prev);
 
+    // If we already have a user, no need to fetch
+    if (user) return;
+
+    // Try to hydrate user from Supabase without redirecting
     try {
-      const { data: { user: freshUser }, error } = await supabase.auth.getUser();
-      if (!error && freshUser) {
+      const { data: { user: freshUser } } = await supabase.auth.getUser();
+      if (freshUser) {
         setUser(freshUser);
         setIsUserMenuOpen(true);
-        return;
       }
     } catch (err) {
       logger.debug('Auth recheck error', err instanceof Error ? err : undefined);
     }
-
-    router.push('/auth');
   };
 
   // Update cart count from localStorage
@@ -382,53 +380,67 @@ export default function Navbar() {
                 )}
                 
                 {/* User Dropdown Menu */}
-                {isUserMenuOpen && user && (
+                {isUserMenuOpen && (
                   <div className="absolute right-0 top-full mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden z-50">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <p className="text-xs text-gray-500">Signed in as</p>
-                      <p className="text-sm font-medium truncate">{user.email}</p>
-                    </div>
-                    <div className="py-1">
-                      {(userRole === 'admin' || userRole === 'super_admin') && (
+                    {user ? (
+                      <>
+                        <div className="px-4 py-3 border-b border-gray-100">
+                          <p className="text-xs text-gray-500">Signed in as</p>
+                          <p className="text-sm font-medium truncate">{user.email}</p>
+                        </div>
+                        <div className="py-1">
+                          {(userRole === 'admin' || userRole === 'super_admin') && (
+                            <Link 
+                              href="/admin" 
+                              className="block px-4 py-2 text-sm font-bold text-red-600 hover:bg-gray-100 uppercase"
+                              onClick={() => setIsUserMenuOpen(false)}
+                            >
+                              Admin Dashboard
+                            </Link>
+                          )}
+                          <Link 
+                            href="/profile"  
+                            className="block px-4 py-2 text-sm hover:bg-gray-100"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            My Profile
+                          </Link>
+                          <Link 
+                            href="/orders" 
+                            className="block px-4 py-2 text-sm hover:bg-gray-100"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            My Orders
+                          </Link>
+                          <Link 
+                            href="/referrals" 
+                            className="block px-4 py-2 text-sm hover:bg-gray-100"
+                            onClick={() => setIsUserMenuOpen(false)}
+                          >
+                            Referrals
+                          </Link>
+                        </div>
+                        <div className="border-t border-gray-100">
+                          <button
+                            onClick={handleLogout}
+                            className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
+                          >
+                            <LogOut className="w-4 h-4" />
+                            Logout
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="py-1">
                         <Link 
-                          href="/admin" 
-                          className="block px-4 py-2 text-sm font-bold text-red-600 hover:bg-gray-100 uppercase"
+                          href="/auth" 
+                          className="block px-4 py-2 text-sm font-bold hover:bg-gray-100 uppercase"
                           onClick={() => setIsUserMenuOpen(false)}
                         >
-                          Admin Dashboard
+                          Sign in / Sign up
                         </Link>
-                      )}
-                      <Link 
-                        href="/profile"  
-                        className="block px-4 py-2 text-sm hover:bg-gray-100"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        My Profile
-                      </Link>
-                      <Link 
-                        href="/orders" 
-                        className="block px-4 py-2 text-sm hover:bg-gray-100"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        My Orders
-                      </Link>
-                      <Link 
-                        href="/referrals" 
-                        className="block px-4 py-2 text-sm hover:bg-gray-100"
-                        onClick={() => setIsUserMenuOpen(false)}
-                      >
-                        Referrals
-                      </Link>
-                    </div>
-                    <div className="border-t border-gray-100">
-                      <button
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2"
-                      >
-                        <LogOut className="w-4 h-4" />
-                        Logout
-                      </button>
-                    </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
