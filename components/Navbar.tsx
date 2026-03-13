@@ -260,9 +260,6 @@ export default function Navbar() {
           setUserRole(null);
         }
 
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-          router.refresh();
-        }
       } catch (err) {
         logger.debug('Auth state change error', err instanceof Error ? err : undefined);
       }
