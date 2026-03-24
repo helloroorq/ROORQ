@@ -3,7 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowRight, Sparkles } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { MarketplaceProduct } from '@/components/home/types'
 
 type HomeHeroProps = {
@@ -17,7 +17,7 @@ const copy = {
       'Browse fresh vintage drops, campus-safe checkout, and image-first listings built to keep you scrolling.',
     primaryLabel: 'Shop now',
     primaryHref: '/shop',
-    secondaryLabel: 'Start selling',
+    secondaryLabel: 'Sell on Roorq',
     secondaryHref: '/sell',
   },
   sell: {
@@ -38,8 +38,6 @@ const fallbackImages = [
 ]
 
 export default function HomeHero({ heroProducts }: HomeHeroProps) {
-  const [mode, setMode] = useState<'buy' | 'sell'>('buy')
-
   const collage = useMemo(
     () =>
       fallbackImages.map((fallback, index) => ({
@@ -49,30 +47,13 @@ export default function HomeHero({ heroProducts }: HomeHeroProps) {
     [heroProducts]
   )
 
-  const activeCopy = copy[mode]
+  const activeCopy = copy['buy']
 
   return (
     <section className="relative overflow-hidden border-b border-stone-200 bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.95),_rgba(241,236,227,0.92)_42%,_rgba(232,229,244,0.9)_100%)]">
       <div className="absolute inset-x-0 top-0 h-40 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),transparent)]" />
       <div className="mx-auto grid max-w-[1440px] gap-12 px-4 py-10 sm:px-6 md:py-14 lg:grid-cols-[1.05fr_0.95fr] lg:items-center lg:px-8 lg:py-16">
         <div className="relative z-10">
-          <div className="inline-flex rounded-full border border-white/70 bg-white/80 p-1 shadow-[0_12px_30px_rgba(15,23,42,0.08)] backdrop-blur">
-            {(['buy', 'sell'] as const).map((item) => (
-              <button
-                key={item}
-                type="button"
-                onClick={() => setMode(item)}
-                className={`rounded-full px-5 py-2 text-sm font-semibold capitalize transition ${
-                  mode === item
-                    ? 'bg-slate-900 text-white shadow-[0_10px_20px_rgba(15,23,42,0.18)]'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                {item}
-              </button>
-            ))}
-          </div>
-
           <div className="mt-6 max-w-xl">
             <p className="inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.26em] text-stone-500">
               <Sparkles className="h-3.5 w-3.5" />

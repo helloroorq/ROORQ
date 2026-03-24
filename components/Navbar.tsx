@@ -296,7 +296,7 @@ function NavbarContent() {
             <div className="ml-auto flex shrink-0 items-center gap-1 xl:gap-2">
               {user && <Link href="/messages" className={topIconButtonClass} aria-label="Open messages"><MessageSquare className="h-5 w-5" /></Link>}
               <Link href="/cart" className={topIconButtonClass} aria-label="Open cart"><div className="relative"><ShoppingBag className="h-5 w-5" />{cartCount > 0 && <span className="absolute -right-2 -top-2 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-slate-950 px-1 text-[10px] font-semibold text-white">{cartCount > 99 ? '99+' : cartCount}</span>}</div></Link>
-              <Link href={sellHref} className={`inline-flex h-10 items-center rounded-sm bg-slate-950 px-5 text-[1rem] font-semibold text-white hover:bg-slate-800 ${focusRingClass}`}>{isSeller ? 'Seller hub' : 'Sell now'}</Link>
+              {isSeller && <Link href={sellHref} className={`inline-flex h-10 items-center rounded-sm bg-slate-950 px-5 text-[1rem] font-semibold text-white hover:bg-slate-800 ${focusRingClass}`}>Seller hub</Link>}
               {!user ? (
                 <>
                   <Link href={signupHref} className={`inline-flex h-10 items-center rounded-sm border border-slate-900 px-5 text-[1rem] font-semibold text-slate-900 hover:bg-stone-50 ${focusRingClass}`}>Sign up</Link>
@@ -361,8 +361,8 @@ function NavbarContent() {
                 <input type="search" value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder='Search for "white linen trousers"' className="w-full bg-transparent text-sm text-slate-900 outline-none placeholder:text-stone-400" aria-label="Search listings" />
               </form>
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <Link href={sellHref} className={`inline-flex items-center justify-center rounded-sm bg-slate-950 px-4 py-3 text-sm font-semibold text-white ${focusRingClass}`}>{isSeller ? 'Seller hub' : 'Sell now'}</Link>
-                <Link href={user ? '/profile' : signupHref} className={`inline-flex items-center justify-center rounded-sm border border-slate-900 px-4 py-3 text-sm font-semibold text-slate-900 ${focusRingClass}`}>{user ? 'My profile' : 'Sign up'}</Link>
+                {isSeller && <Link href={sellHref} className={`inline-flex items-center justify-center rounded-sm bg-slate-950 px-4 py-3 text-sm font-semibold text-white ${focusRingClass}`}>Seller hub</Link>}
+                <Link href={user ? '/profile' : signupHref} className={`inline-flex items-center justify-center rounded-sm border border-slate-900 px-4 py-3 text-sm font-semibold text-slate-900 ${focusRingClass} ${isSeller ? '' : 'col-span-2'}`}>{user ? 'My profile' : 'Sign up'}</Link>
               </div>
             </div>
             <div className="flex-1 px-5 py-5">
