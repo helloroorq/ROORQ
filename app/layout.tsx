@@ -63,8 +63,8 @@ export default function RootLayout({
   assertValidEnv();
 
   return (
-    <html lang="en">
-      <body>
+    <html lang="en" className="font-satoshi">
+      <body className="font-satoshi">
         <AuthProvider>
           <Toaster />
           <Preloader />
