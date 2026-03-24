@@ -261,6 +261,7 @@ function NavbarContent() {
   }
 
   return (
+    <>
     <header className="sticky top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur-md">
       <div className="mx-auto max-w-[1880px]">
         <div className="relative flex h-16 items-center px-4 lg:hidden">
@@ -344,6 +345,8 @@ function NavbarContent() {
         </div>
       </div>
 
+    </header>
+
       {isMenuOpen && (
         <div className="fixed inset-0 z-[60] lg:hidden">
           <button type="button" className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px]" aria-label="Close navigation menu" onClick={() => setIsMenuOpen(false)} />
@@ -395,7 +398,7 @@ function NavbarContent() {
           </div>
         </div>
       )}
-    </header>
+    </>
   )
 }
 
