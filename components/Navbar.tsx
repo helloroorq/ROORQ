@@ -17,6 +17,7 @@ import {
   User as UserIcon,
   X,
 } from 'lucide-react'
+import RoorqLogo from '@/components/RoorqLogo'
 import { logger } from '@/lib/logger'
 import { useAuth } from '@/components/providers/AuthProvider'
 import DesktopMegaMenu from '@/components/navbar/DesktopMegaMenu'
@@ -262,9 +263,11 @@ function NavbarContent() {
   return (
     <header className="sticky top-0 z-50 border-b border-black/10 bg-white/95 backdrop-blur-md">
       <div className="mx-auto max-w-[1880px]">
-        <div className="flex h-16 items-center gap-3 px-4 lg:hidden">
+        <div className="relative flex h-16 items-center px-4 lg:hidden">
           <button type="button" onClick={() => { setIsMenuOpen(true); setIsUserMenuOpen(false); closeMegaMenu() }} className={`inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white hover:bg-stone-50 ${focusRingClass}`} aria-label="Open navigation menu"><Menu className="h-5 w-5" /></button>
-          <Link href="/" className={focusRingClass}><span className="block text-[1.9rem] font-black tracking-[-0.08em] text-[#e11d2e]">roorq</span></Link>
+          <Link href="/" className={`absolute left-1/2 -translate-x-1/2 ${focusRingClass}`} aria-label="Roorq home">
+            <RoorqLogo className="h-7 w-auto text-slate-950" />
+          </Link>
           <div className="ml-auto flex items-center gap-1">
             <Link href="/cart" className={topIconButtonClass} aria-label="Open cart"><div className="relative"><ShoppingBag className="h-5 w-5" />{cartCount > 0 && <span className="absolute -right-2 -top-2 inline-flex min-h-[18px] min-w-[18px] items-center justify-center rounded-full bg-slate-950 px-1 text-[10px] font-semibold text-white">{cartCount > 99 ? '99+' : cartCount}</span>}</div></Link>
             <Link href={user ? '/profile' : loginHref} className={topIconButtonClass} aria-label={user ? 'Open profile' : 'Log in'}><UserIcon className="h-5 w-5" /></Link>
@@ -280,7 +283,9 @@ function NavbarContent() {
 
         <div className="hidden lg:block">
           <div className="flex h-[74px] items-center gap-8 px-6 xl:px-8">
-            <Link href="/" className={focusRingClass}><span className="block text-[2.15rem] font-black tracking-[-0.08em] text-[#e11d2e]">roorq</span></Link>
+            <Link href="/" className={focusRingClass} aria-label="Roorq home">
+              <RoorqLogo className="h-8 w-auto text-slate-950" />
+            </Link>
             <form onSubmit={handleSearchSubmit} className="flex flex-1" role="search">
               <div className="mx-auto flex w-full max-w-[840px] items-center gap-3 rounded-full border border-slate-900 bg-white px-5 py-3 shadow-[0_8px_24px_rgba(15,23,42,0.05)]">
                 <Search className="h-5 w-5 text-stone-500" />
@@ -344,7 +349,10 @@ function NavbarContent() {
           <button type="button" className="absolute inset-0 bg-slate-950/35 backdrop-blur-[2px]" aria-label="Close navigation menu" onClick={() => setIsMenuOpen(false)} />
           <div className="relative ml-auto flex h-full w-[88%] max-w-sm flex-col overflow-y-auto bg-white shadow-[-18px_0_40px_rgba(15,23,42,0.18)]">
             <div className="flex items-center justify-between border-b border-black/10 px-5 py-5">
-              <div><p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">Marketplace menu</p><p className="mt-1 text-[2rem] font-black tracking-[-0.08em] text-[#e11d2e]">roorq</p></div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-stone-500">Marketplace menu</p>
+                <RoorqLogo className="mt-2 h-6 w-auto text-slate-950" />
+              </div>
               <button type="button" onClick={() => setIsMenuOpen(false)} className={`inline-flex h-10 w-10 items-center justify-center rounded-full border border-black/10 bg-white ${focusRingClass}`} aria-label="Close navigation menu"><X className="h-5 w-5" /></button>
             </div>
             <div className="border-b border-black/10 px-5 py-5">
