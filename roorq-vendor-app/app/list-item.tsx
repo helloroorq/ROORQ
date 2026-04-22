@@ -1,454 +1,508 @@
 import { useState } from 'react'
 import {
-  View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, ViewStyle, TextStyle, TextInput,
-  Image, ImageStyle, Alert, KeyboardAvoidingView, Platform,
-  ActivityIndicator,
+  View, Text, ScrollView, TouchableOpacity, TextInput,
+  StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator,
+  Alert, Image,
 } from 'react-native'
-import * as ImagePicker from 'expo-image-picker'
-import * as FileSystem from 'expo-file-system/legacy'
-import { decode } from 'base64-arraybuffer'
 import { useRouter } from 'expo-router'
-import { Colors, Spacing, Radius, Size, FontSize, FontWeight } from '@/theme'
-import { supabase } from '@/lib/supabase'
+import { StatusBar } from 'expo-status-bar'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { X, Camera, Plus, Sparkles, Trash2, Video, CheckCircle } from 'lucide-react-native'
+import * as ImagePicker from 'expo-image-picker'
+import { supabase } from '../lib/supabase'
+import { RoorqLogo } from '../src/components/common/RoorqLogo'
+import { colors } from '../src/constants/colors'
+import { fonts } from '../src/constants/typography'
+import { spacing, radius } from '../src/constants/spacing'
 
-// ── Constants from DB CHECK constraints ──────────────────────
-const CATEGORIES = ['t-shirt', 'jeans', 'jacket', 'sweater', 'shoes', 'accessories', 'trousers']
-const SIZES      = ['XS', 'S', 'M', 'L', 'XL', 'XXL', 'Free']
-const GENDERS    = ['men', 'women', 'unisex']
-const STEPS      = ['Photos', 'Details', 'Story']
-const MIN_PHOTOS = 2
-const MAX_PHOTOS = 5
+const BRANDS = ['Nike','Adidas','Levi\'s','Tommy Hilfiger','Calvin Klein','Lacoste','Champion','Carhartt','Polo Ralph Lauren','Fila','Puma','Reebok','Diesel','Wrangler','H&M','Zara','Uniqlo','Gap','No brand','Other']
+const CATEGORIES = ['Tee','Shirt','Jacket','Jeans','Trouser','Sweater','Hoodie','Dress','Skirt','Shoes','Bag','Accessory']
+const GENDERS = ['Men\'s','Women\'s','Unisex']
+const SIZES = ['XS','S','M','L','XL','XXL','Free Size']
+const CONDITIONS = [
+  { val: 'excellent',  label: 'Excellent',  desc: 'Like new, no visible wear' },
+  { val: 'very_good',  label: 'Very Good',  desc: 'Light signs of wear' },
+  { val: 'good',       label: 'Good',       desc: 'Clear wear but fully wearable' },
+  { val: 'fair',       label: 'Fair',       desc: 'Well-loved, priced accordingly' },
+]
 
-const STORY_QUESTIONS = [
-  { key: 'origin', q: '📍 Where did you find this piece?' },
-  { key: 'era',    q: '📅 What year or era is it from?' },
-  { key: 'brand',  q: '🏷️ What brand is it?' },
-  { key: 'why',    q: "✨ One line about why it's special?" },
-] as const
-
-type Photo = { uri: string }
-type Story = { origin: string; era: string; brand: string; why: string }
-type Details = { name: string; category: string; size: string; gender: string; price: string }
-
-// ─────────────────────────────────────────────────────────────
 export default function ListItemScreen() {
   const router = useRouter()
+  const insets = useSafeAreaInsets()
+  const [photos, setPhotos] = useState<string[]>([])
+  const [title, setTitle] = useState('')
+  const [brand, setBrand] = useState('')
+  const [showBrands, setShowBrands] = useState(false)
+  const [brandSearch, setBrandSearch] = useState('')
+  const [category, setCategory] = useState('')
+  const [gender, setGender] = useState('')
+  const [size, setSize] = useState('')
+  const [condition, setCondition] = useState('')
+  const [price, setPrice] = useState('')
+  const [description, setDescription] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [hasVideo, setHasVideo] = useState(false)
 
-  const [step, setStep]       = useState(0)
-  const [photos, setPhotos]   = useState<Photo[]>([])
-  const [details, setDetails] = useState<Details>({ name: '', category: '', size: '', gender: 'unisex', price: '' })
-  const [story, setStory]     = useState<Story>({ origin: '', era: '', brand: '', why: '' })
-  const [loading, setLoading] = useState(false)
-  const [uploadStep, setUploadStep] = useState('')  // shows "Uploading photo 1/3..."
+  const pickPhoto = async (index: number) => {
+    Alert.alert('Add Photo', 'Choose source', [
+      {
+        text: 'Camera', onPress: async () => {
+          const { status } = await ImagePicker.requestCameraPermissionsAsync()
+          if (status !== 'granted') { Alert.alert('Camera permission is required'); return }
+          const result = await ImagePicker.launchCameraAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.85 })
+          if (!result.canceled && result.assets[0]) {
+            const updated = [...photos]
+            updated[index] = result.assets[0].uri
+            setPhotos(updated)
+          }
+        },
+      },
+      {
+        text: 'Gallery', onPress: async () => {
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
+          if (status !== 'granted') { Alert.alert('Gallery permission is required'); return }
+          const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, quality: 0.85 })
+          if (!result.canceled && result.assets[0]) {
+            const updated = [...photos]
+            updated[index] = result.assets[0].uri
+            setPhotos(updated)
+          }
+        },
+      },
+      { text: 'Cancel', style: 'cancel' },
+    ])
+  }
 
-  // ── Photo pickers ────────────────────────────────────────
-  async function pickFromGallery() {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync()
-    if (status !== 'granted') return Alert.alert('Permission needed', 'Allow photo access to list items.')
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-      selectionLimit: MAX_PHOTOS - photos.length,
+  const removePhoto = (index: number) => {
+    const updated = [...photos]
+    updated.splice(index, 1)
+    setPhotos(updated)
+  }
+
+  const fee = price ? Math.round(parseFloat(price) * 0.2) : 0
+  const payout = price ? Math.round(parseFloat(price) * 0.8) : 0
+  const filteredBrands = BRANDS.filter(b => b.toLowerCase().includes(brandSearch.toLowerCase()))
+
+  const handleSubmit = async () => {
+    if (!title.trim()) { Alert.alert('Title is required'); return }
+    if (!brand) { Alert.alert('Brand is required'); return }
+    if (!category) { Alert.alert('Category is required'); return }
+    if (!price || parseFloat(price) <= 0) { Alert.alert('Price is required'); return }
+    setSaving(true)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setSaving(false); return }
+    const { error } = await supabase.from('products').insert({
+      vendor_id: user.id,
+      title: title.trim(),
+      name: title.trim(),
+      brand,
+      category,
+      gender,
+      size,
+      condition,
+      price: parseFloat(price),
+      description,
+      status: 'pending',
     })
-    if (result.canceled) return
-    setPhotos(prev => [...prev, ...result.assets.map(a => ({ uri: a.uri }))].slice(0, MAX_PHOTOS))
+    setSaving(false)
+    if (error) { Alert.alert('Failed to save', error.message); return }
+    Alert.alert('Submitted!', 'Your item is under review. We\'ll notify you within 24h.', [
+      { text: 'View Listings', onPress: () => router.replace('/(tabs)/listings' as any) },
+      { text: 'List Another', onPress: () => router.replace('/list-item' as any) },
+    ])
   }
 
-  async function pickFromCamera() {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync()
-    if (status !== 'granted') return Alert.alert('Permission needed', 'Allow camera access.')
-    const result = await ImagePicker.launchCameraAsync({ quality: 0.8 })
-    if (result.canceled) return
-    setPhotos(prev => [...prev, { uri: result.assets[0].uri }].slice(0, MAX_PHOTOS))
-  }
-
-  // ── Navigation ───────────────────────────────────────────
-  function goNext() {
-    if (step === 0) {
-      if (photos.length < MIN_PHOTOS)
-        return Alert.alert('Add more photos', `Please add at least ${MIN_PHOTOS} photos.`)
-      setStep(1); return
-    }
-    if (step === 1) {
-      if (!details.name.trim())     return Alert.alert('Add a name', 'e.g. "Vintage Levi\'s 501"')
-      if (!details.category)        return Alert.alert('Pick a category')
-      if (!details.size)            return Alert.alert('Pick a size')
-      if (!details.price || Number(details.price) < 1)
-                                    return Alert.alert('Set a price')
-      setStep(2); return
-    }
-    submitListing()
-  }
-
-  // ── Upload one photo to Supabase Storage ─────────────────
-  // What's happening: fetch the local file → turn into blob → upload to bucket
-  async function uploadPhoto(uri: string, index: number): Promise<string> {
-    setUploadStep(`Uploading photo ${index + 1} of ${photos.length}...`)
-
-    const ext      = uri.split('.').pop()?.toLowerCase() ?? 'jpg'
-    const fileName = `vendor/${Date.now()}_${index}.${ext}`
-
-    // Read file as base64 — works on both iOS and Android
-    const base64 = await FileSystem.readAsStringAsync(uri, {
-      encoding: 'base64' as any,
-    })
-
-    const { error } = await supabase.storage
-      .from('product-images')
-      .upload(fileName, decode(base64), { contentType: `image/${ext}` })
-
-    if (error) throw new Error(`Photo upload failed: ${error.message}`)
-
-    // Return the public URL so we can store it in the products table
-    const { data } = supabase.storage.from('product-images').getPublicUrl(fileName)
-    return data.publicUrl
-  }
-
-  // ── Submit: upload photos → insert product row ───────────
-  async function submitListing() {
-    setLoading(true)
-    try {
-      // 1. Upload all photos, collect their public URLs
-      const imageUrls: string[] = []
-      for (let i = 0; i < photos.length; i++) {
-        const url = await uploadPhoto(photos[i].uri, i)
-        imageUrls.push(url)
-      }
-
-      // 2. Build story description from the 4 questions
-      setUploadStep('Saving your listing...')
-      const description = [
-        story.origin && `Found: ${story.origin}`,
-        story.era    && `Era: ${story.era}`,
-        story.brand  && `Brand: ${story.brand}`,
-        story.why    && story.why,
-      ].filter(Boolean).join(' · ')
-
-      // 3. Get current vendor session (falls back to null in dev)
-      const { data: { session } } = await supabase.auth.getSession()
-
-      // 4. Insert product row into Supabase
-      const { error } = await supabase.from('products').insert({
-        name:           details.name.trim(),
-        category:       details.category,
-        size:           details.size,
-        gender:         details.gender,
-        price:          Number(details.price),
-        vendor_price:   Number(details.price),
-        platform_price: Math.ceil(Number(details.price) * 1.15),  // 15% fee
-        brand:          story.brand || null,
-        description:    description || null,
-        images:         imageUrls,
-        stock_quantity: 1,
-        is_active:      true,
-        vendor_id:      session?.user?.id ?? null,
-      })
-
-      if (error) throw new Error(error.message)
-
-      setUploadStep('')
-      Alert.alert(
-        'Listed! 🎉',
-        `"${details.name}" is now live on Roorq.\n\nBuyers can see it on the website right now.`,
-        [{ text: 'Done', onPress: () => router.back() }]
-      )
-    } catch (err: any) {
-      Alert.alert('Something went wrong', err.message)
-    } finally {
-      setLoading(false)
-      setUploadStep('')
-    }
-  }
-
-  // ── Render ───────────────────────────────────────────────
   return (
-    <KeyboardAvoidingView
-      style={vs.screen}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      {/* Top bar */}
-      <View style={vs.topBar}>
-        <TouchableOpacity
-          onPress={() => step === 0 ? router.back() : setStep(s => s - 1)}
-          style={vs.backBtn}
-        >
-          <Text style={ts.backArrow}>{step === 0 ? '✕' : '←'}</Text>
-        </TouchableOpacity>
-        <Text style={ts.topTitle}>List an item</Text>
-        <View style={{ width: 40 }} />
-      </View>
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <StatusBar style="light" />
 
-      {/* Progress */}
-      <View style={vs.progressRow}>
-        {STEPS.map((label, i) => (
-          <View key={label} style={vs.progressItem}>
-            <View style={[vs.dot, i <= step && vs.dotActive]}>
-              <Text style={[ts.dotNum, i <= step && ts.dotNumActive]}>
-                {i < step ? '✓' : i + 1}
-              </Text>
-            </View>
-            <Text style={[ts.dotLabel, i === step && ts.dotLabelActive]}>{label}</Text>
-            {i < STEPS.length - 1 && <View style={[vs.line, i < step && vs.lineActive]} />}
-          </View>
-        ))}
+      {/* Top bar */}
+      <View style={[styles.topBar, { paddingTop: insets.top + 8 }]}>
+        <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
+          <X size={18} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <RoorqLogo width={80} />
+        <TouchableOpacity><Text style={styles.draftText}>Save draft</Text></TouchableOpacity>
       </View>
 
       <ScrollView
-        style={vs.scroll}
-        contentContainerStyle={vs.scrollContent}
-        keyboardShouldPersistTaps="handled"
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
-
-        {/* ══ STEP 1 — PHOTOS ══ */}
-        {step === 0 && (
-          <>
-            <Text style={ts.stepTitle}>Add photos</Text>
-            <Text style={ts.stepSub}>{photos.length}/{MAX_PHOTOS} · minimum {MIN_PHOTOS}</Text>
-
-            <View style={vs.grid}>
-              {photos.map((p, i) => (
-                <View key={i} style={vs.thumb}>
-                  <Image source={{ uri: p.uri }} style={is.thumb} />
-                  <TouchableOpacity style={vs.removeBtn} onPress={() => setPhotos(prev => prev.filter((_, j) => j !== i))}>
-                    <Text style={ts.removeBtnText}>✕</Text>
+        {/* Photos */}
+        <View style={styles.section}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.photosRow}>
+            {/* Cover slot */}
+            <TouchableOpacity style={styles.coverSlot} onPress={() => pickPhoto(0)}>
+              {photos[0] ? (
+                <>
+                  <Image source={{ uri: photos[0] }} style={styles.slotImage} />
+                  <TouchableOpacity style={styles.removeBtn} onPress={() => removePhoto(0)}>
+                    <Trash2 size={12} color={colors.textPrimary} />
                   </TouchableOpacity>
-                </View>
-              ))}
-              {photos.length < MAX_PHOTOS && (
-                <TouchableOpacity style={vs.addSlot} onPress={pickFromGallery}>
-                  <Text style={ts.addIcon}>+</Text>
-                </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Camera size={22} color={colors.textTertiary} />
+                  <Text style={styles.coverSlotText}>COVER PHOTO</Text>
+                </>
               )}
+            </TouchableOpacity>
+            {[1,2,3,4,5].map(i => (
+              <TouchableOpacity key={i} style={styles.photoSlot} onPress={() => pickPhoto(i)}>
+                {photos[i] ? (
+                  <>
+                    <Image source={{ uri: photos[i] }} style={styles.slotImage} />
+                    <TouchableOpacity style={styles.removeBtn} onPress={() => removePhoto(i)}>
+                      <Trash2 size={12} color={colors.textPrimary} />
+                    </TouchableOpacity>
+                  </>
+                ) : (
+                  <Plus size={16} color={colors.textTertiary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <Text style={styles.photoHint}>4–6 photos · Front, back, brand tag, details</Text>
+        </View>
+
+        {/* Video Upload */}
+        <View style={styles.field}>
+          <TouchableOpacity
+            style={[styles.videoSlot, hasVideo && styles.videoSlotActive]}
+            onPress={() => setHasVideo(v => !v)}
+            activeOpacity={0.85}
+          >
+            <View style={[styles.videoIcon, hasVideo && styles.videoIconActive]}>
+              {hasVideo
+                ? <CheckCircle size={22} color={colors.verified} />
+                : <Video size={22} color={colors.textTertiary} />}
             </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.videoTitle, hasVideo && { color: colors.verified }]}>
+                {hasVideo ? 'Video added' : 'Add a short video'}
+              </Text>
+              <Text style={styles.videoSub}>15–30 sec · Show fit, fabric & details</Text>
+            </View>
+            {!hasVideo && <Plus size={18} color={colors.textTertiary} />}
+          </TouchableOpacity>
+          <View style={styles.videoNotice}>
+            <Sparkles size={13} color={colors.red} />
+            <Text style={styles.videoNoticeText}>
+              Listings with video are{' '}
+              <Text style={{ color: colors.textPrimary, fontFamily: fonts.bodySemi }}>3x more likely to get approved</Text>
+              {' '}by ROORQ and sell faster!
+            </Text>
+          </View>
+        </View>
 
-            <TouchableOpacity style={vs.pickBtn} onPress={pickFromCamera} activeOpacity={0.8}>
-              <Text style={ts.pickBtnText}>📷  Take a photo</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[vs.pickBtn, vs.pickBtnOutline]} onPress={pickFromGallery} activeOpacity={0.8}>
-              <Text style={[ts.pickBtnText, { color: Colors.BLACK }]}>🖼️  Choose from gallery</Text>
-            </TouchableOpacity>
-            <Text style={ts.tip}>💡 Shoot on white background for best results</Text>
-          </>
-        )}
-
-        {/* ══ STEP 2 — DETAILS + PRICE ══ */}
-        {step === 1 && (
-          <>
-            {/* Item name */}
-            <Text style={ts.fieldLabel}>Item name</Text>
+        {/* Title */}
+        <View style={styles.field}>
+          <Text style={styles.label}>TITLE *</Text>
+          <View style={styles.inputWrap}>
             <TextInput
-              style={ts.textInput}
-              placeholder='e.g. Vintage Levis 501 Jeans'
-              placeholderTextColor={Colors.MUTED}
-              value={details.name}
-              onChangeText={v => setDetails(d => ({ ...d, name: v }))}
-              returnKeyType="done"
+              style={styles.input} value={title} onChangeText={setTitle}
+              placeholder="e.g., 90s Nike Swoosh Tee"
+              placeholderTextColor={colors.textTertiary}
             />
+          </View>
+        </View>
 
-            {/* Category */}
-            <Text style={ts.fieldLabel}>Category</Text>
-            <View style={vs.pills}>
-              {CATEGORIES.map(c => (
-                <TouchableOpacity
-                  key={c}
-                  style={[vs.pill, details.category === c && vs.pillActive]}
-                  onPress={() => setDetails(d => ({ ...d, category: c }))}
-                >
-                  <Text style={[ts.pillText, details.category === c && ts.pillTextActive]}>
-                    {c}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Size */}
-            <Text style={ts.fieldLabel}>Size</Text>
-            <View style={vs.pills}>
-              {SIZES.map(s => (
-                <TouchableOpacity
-                  key={s}
-                  style={[vs.pill, details.size === s && vs.pillActive]}
-                  onPress={() => setDetails(d => ({ ...d, size: s }))}
-                >
-                  <Text style={[ts.pillText, details.size === s && ts.pillTextActive]}>{s}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Gender */}
-            <Text style={ts.fieldLabel}>Gender</Text>
-            <View style={vs.pills}>
-              {GENDERS.map(g => (
-                <TouchableOpacity
-                  key={g}
-                  style={[vs.pill, details.gender === g && vs.pillActive]}
-                  onPress={() => setDetails(d => ({ ...d, gender: g }))}
-                >
-                  <Text style={[ts.pillText, details.gender === g && ts.pillTextActive]}>{g}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Price */}
-            <Text style={ts.fieldLabel}>Your price</Text>
-            <View style={vs.priceRow}>
-              <View style={vs.pricePrefix}>
-                <Text style={ts.pricePrefixText}>₹</Text>
-              </View>
-              <TextInput
-                style={ts.priceInput}
-                placeholder="0"
-                placeholderTextColor={Colors.BORDER}
-                keyboardType="number-pad"
-                value={details.price}
-                onChangeText={v => setDetails(d => ({ ...d, price: v.replace(/[^0-9]/g, '') }))}
-              />
-            </View>
-
-            {details.price ? (
-              <View style={vs.earningsRow}>
-                <View style={vs.earningsItem}>
-                  <Text style={ts.earningsLabel}>You earn</Text>
-                  <Text style={[ts.earningsValue, { color: Colors.GREEN }]}>
-                    ₹{Math.floor(Number(details.price) * 0.85).toLocaleString('en-IN')}
-                  </Text>
-                </View>
-                <View style={vs.earningsDivider} />
-                <View style={vs.earningsItem}>
-                  <Text style={ts.earningsLabel}>Buyer pays</Text>
-                  <Text style={ts.earningsValue}>
-                    ₹{Math.ceil(Number(details.price) * 1.15).toLocaleString('en-IN')}
-                  </Text>
-                </View>
-              </View>
-            ) : null}
-
-            <Text style={ts.tip}>💡 Price 20–30% below retail moves fastest on Roorq</Text>
-          </>
-        )}
-
-        {/* ══ STEP 3 — STORY SCORE ══ */}
-        {step === 2 && (
-          <>
-            <Text style={ts.stepTitle}>Story Score</Text>
-            <Text style={ts.stepSub}>Optional — items with a story sell 3× faster</Text>
-
-            {STORY_QUESTIONS.map(({ key, q }) => (
-              <View key={key} style={vs.bubbleWrap}>
-                <View style={vs.bubble}>
-                  <Text style={ts.bubbleQ}>{q}</Text>
-                </View>
+        {/* Brand */}
+        <View style={styles.field}>
+          <Text style={styles.label}>BRAND *</Text>
+          <TouchableOpacity style={styles.inputWrap} onPress={() => setShowBrands(v => !v)}>
+            <Text style={[styles.input, { lineHeight: 48, color: brand ? colors.textPrimary : colors.textTertiary }]}>
+              {brand || 'Select brand'}
+            </Text>
+          </TouchableOpacity>
+          {showBrands && (
+            <View style={styles.dropdown}>
+              <View style={styles.dropSearch}>
                 <TextInput
-                  style={ts.bubbleInput}
-                  placeholder="Type your answer..."
-                  placeholderTextColor={Colors.MUTED}
-                  value={story[key]}
-                  onChangeText={v => setStory(prev => ({ ...prev, [key]: v }))}
-                  returnKeyType="next"
-                  multiline
+                  style={styles.dropSearchInput} value={brandSearch} onChangeText={setBrandSearch}
+                  placeholder="Search..." placeholderTextColor={colors.textTertiary}
                 />
               </View>
-            ))}
-            <Text style={ts.tip}>💡 These become the Story Score badge buyers see on your product</Text>
-          </>
-        )}
+              <ScrollView style={{ maxHeight: 180 }} nestedScrollEnabled>
+                {filteredBrands.map(b => (
+                  <TouchableOpacity key={b} style={styles.dropItem}
+                    onPress={() => { setBrand(b); setShowBrands(false); setBrandSearch('') }}>
+                    <Text style={[styles.dropText, brand === b && { color: colors.textPrimary }]}>{b}</Text>
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
+            </View>
+          )}
+        </View>
 
-        <View style={{ height: 130 }} />
+        {/* Category */}
+        <View style={styles.field}>
+          <Text style={styles.label}>CATEGORY *</Text>
+          <View style={styles.chipGrid}>
+            {CATEGORIES.map(c => (
+              <TouchableOpacity key={c}
+                style={[styles.chip, category === c && styles.chipSelected]}
+                onPress={() => setCategory(c)}>
+                <Text style={[styles.chipText, category === c && styles.chipTextSelected]}>{c}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Gender */}
+        <View style={styles.field}>
+          <Text style={styles.label}>GENDER *</Text>
+          <View style={styles.chipRow}>
+            {GENDERS.map(g => (
+              <TouchableOpacity key={g}
+                style={[styles.chip, styles.chipWide, gender === g && styles.chipSelected]}
+                onPress={() => setGender(g)}>
+                <Text style={[styles.chipText, gender === g && styles.chipTextSelected]}>{g}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Size */}
+        <View style={styles.field}>
+          <Text style={styles.label}>SIZE *</Text>
+          <View style={styles.chipGrid}>
+            {SIZES.map(s => (
+              <TouchableOpacity key={s}
+                style={[styles.sizeChip, size === s && styles.chipSelected]}
+                onPress={() => setSize(s)}>
+                <Text style={[styles.chipText, size === s && styles.chipTextSelected]}>{s}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Condition */}
+        <View style={styles.field}>
+          <Text style={styles.label}>CONDITION *</Text>
+          <View style={styles.conditionList}>
+            {CONDITIONS.map(c => (
+              <TouchableOpacity key={c.val}
+                style={[styles.conditionCard, condition === c.val && styles.conditionCardSelected]}
+                onPress={() => setCondition(c.val)}>
+                <Text style={[styles.conditionLabel, condition === c.val && { color: colors.textPrimary }]}>{c.label}</Text>
+                <Text style={styles.conditionDesc}>{c.desc}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Price */}
+        <View style={styles.field}>
+          <Text style={styles.label}>PRICE *</Text>
+          <View style={styles.inputWrap}>
+            <Text style={styles.rupeePrefix}>₹</Text>
+            <TextInput
+              style={[styles.input, styles.priceInput]}
+              value={price} onChangeText={setPrice}
+              placeholder="0" placeholderTextColor={colors.textTertiary}
+              keyboardType="numeric"
+            />
+          </View>
+          {price && parseFloat(price) > 0 && (
+            <View style={styles.payoutCard}>
+              <View style={styles.payoutRow}>
+                <Text style={styles.payoutKey}>You'll receive:</Text>
+                <Text style={[styles.payoutVal, { color: colors.verified }]}>₹{payout.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={styles.payoutRow}>
+                <Text style={styles.payoutKey}>ROORQ fee (20%):</Text>
+                <Text style={styles.payoutVal}>₹{fee.toLocaleString('en-IN')}</Text>
+              </View>
+              <View style={[styles.payoutRow, styles.payoutDivider]}>
+                <Text style={styles.payoutKey}>Buyer pays:</Text>
+                <Text style={[styles.payoutVal, { color: colors.textPrimary }]}>₹{parseFloat(price).toLocaleString('en-IN')}</Text>
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Description */}
+        <View style={styles.field}>
+          <Text style={styles.label}>DESCRIPTION</Text>
+          <View style={[styles.inputWrap, { alignItems: 'flex-start', paddingVertical: 12 }]}>
+            <TextInput
+              style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
+              value={description} onChangeText={t => setDescription(t.slice(0, 300))}
+              placeholder="Tell the story. Era, fit, any quirks or unique details."
+              placeholderTextColor={colors.textTertiary}
+              multiline numberOfLines={3}
+            />
+          </View>
+          <View style={styles.descFooter}>
+            <TouchableOpacity style={styles.aiBtn}>
+              <Sparkles size={12} color={colors.warning} />
+              <Text style={styles.aiBtnText}>Auto-generate description</Text>
+            </TouchableOpacity>
+            <Text style={styles.charCount}>{description.length}/300</Text>
+          </View>
+        </View>
+
+        {/* Verified notice */}
+        <View style={[styles.field, { marginBottom: 100 }]}>
+          <View style={styles.verifiedNotice}>
+            <Text style={styles.verifiedText}>
+              Our team creates a <Text style={{ color: colors.textPrimary, fontFamily: fonts.bodySemi }}>ROORQ Verified</Text> video from your photos within 24h. Your item goes live after verification.
+            </Text>
+          </View>
+        </View>
       </ScrollView>
 
-      {/* Fixed bottom button */}
-      <View style={vs.bottomBar}>
-        {loading ? (
-          <View style={vs.loadingBox}>
-            <ActivityIndicator color={Colors.WHITE} />
-            <Text style={ts.loadingText}>{uploadStep || 'Listing...'}</Text>
-          </View>
-        ) : (
-          <>
-            <TouchableOpacity style={vs.listBtn} onPress={goNext} activeOpacity={0.85}>
-              <Text style={ts.listBtnText}>
-                {step === STEPS.length - 1 ? 'List it →' : 'Continue →'}
-              </Text>
-            </TouchableOpacity>
-            {step === 2 && (
-              <TouchableOpacity onPress={submitListing} style={vs.skipBtn}>
-                <Text style={ts.skipText}>Skip Story Score</Text>
-              </TouchableOpacity>
-            )}
-          </>
-        )}
+      {/* Sticky bottom */}
+      <View style={styles.bottomBar}>
+        <TouchableOpacity style={styles.saveDraftBtn}>
+          <Text style={styles.saveDraftText}>Save Draft</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.submitBtn, saving && { opacity: 0.6 }]}
+          onPress={handleSubmit} disabled={saving} activeOpacity={0.85}
+        >
+          {saving && <ActivityIndicator size="small" color={colors.textPrimary} style={{ marginRight: 8 }} />}
+          <Text style={styles.submitText}>{saving ? 'Submitting...' : 'Submit for Review'}</Text>
+        </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   )
 }
 
-// ── View styles ───────────────────────────────────────────────
-const vs = StyleSheet.create<Record<string, ViewStyle>>({
-  screen:       { flex: 1, backgroundColor: Colors.WHITE },
-  topBar:       { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.MD, paddingTop: 56, paddingBottom: Spacing.SM, borderBottomWidth: 1, borderBottomColor: Colors.BORDER },
-  backBtn:      { width: 40, height: 40, justifyContent: 'center' },
-  progressRow:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: Spacing.SM, paddingHorizontal: Spacing.MD },
-  progressItem: { flexDirection: 'row', alignItems: 'center', gap: Spacing.XS },
-  dot:          { width: 28, height: 28, borderRadius: 14, backgroundColor: Colors.BORDER, justifyContent: 'center', alignItems: 'center' },
-  dotActive:    { backgroundColor: Colors.RED },
-  line:         { width: 32, height: 2, backgroundColor: Colors.BORDER, marginHorizontal: 4 },
-  lineActive:   { backgroundColor: Colors.RED },
-  scroll:       { flex: 1 },
-  scrollContent:{ padding: Spacing.MD },
-  grid:         { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.XS, marginVertical: Spacing.MD },
-  thumb:        { width: '30%', aspectRatio: 0.85, borderRadius: Radius.CARD, overflow: 'hidden' },
-  removeBtn:    { position: 'absolute', top: 6, right: 6, width: 22, height: 22, borderRadius: 11, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
-  addSlot:      { width: '30%', aspectRatio: 0.85, borderRadius: Radius.CARD, borderWidth: 1.5, borderColor: Colors.BORDER, borderStyle: 'dashed', justifyContent: 'center', alignItems: 'center' },
-  pickBtn:      { height: Size.BUTTON_HEIGHT, backgroundColor: Colors.BLACK, borderRadius: Radius.CARD, justifyContent: 'center', alignItems: 'center', marginBottom: Spacing.XS },
-  pickBtnOutline: { backgroundColor: Colors.WHITE, borderWidth: 1.5, borderColor: Colors.BORDER },
-  pills:        { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.XS, marginBottom: Spacing.MD },
-  pill:         { paddingHorizontal: Spacing.SM, paddingVertical: Spacing.XS, borderRadius: 20, borderWidth: 1.5, borderColor: Colors.BORDER },
-  pillActive:   { backgroundColor: Colors.BLACK, borderColor: Colors.BLACK },
-  priceRow:     { flexDirection: 'row', alignItems: 'center', marginBottom: Spacing.SM },
-  pricePrefix:  { width: 48, height: 64, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.CREAM, borderRadius: Radius.INPUT, marginRight: Spacing.XS },
-  earningsRow:  { flexDirection: 'row', backgroundColor: Colors.CREAM, borderRadius: Radius.CARD, padding: Spacing.MD, marginBottom: Spacing.SM },
-  earningsItem: { flex: 1, alignItems: 'center' },
-  earningsDivider: { width: 1, backgroundColor: Colors.BORDER },
-  bubbleWrap:   { marginBottom: Spacing.MD },
-  bubble:       { backgroundColor: Colors.CREAM, borderRadius: Radius.CARD, borderBottomLeftRadius: 4, padding: Spacing.SM, marginBottom: Spacing.XS, alignSelf: 'flex-start', maxWidth: '85%' },
-  bottomBar:    { paddingHorizontal: Spacing.MD, paddingBottom: 34, paddingTop: Spacing.SM, borderTopWidth: 1, borderTopColor: Colors.BORDER, backgroundColor: Colors.WHITE },
-  listBtn:      { height: Size.BUTTON_HEIGHT, backgroundColor: Colors.RED, borderRadius: Radius.CARD, justifyContent: 'center', alignItems: 'center' },
-  skipBtn:      { alignItems: 'center', paddingTop: Spacing.XS, minHeight: 40, justifyContent: 'center' },
-  loadingBox:   { height: Size.BUTTON_HEIGHT, backgroundColor: Colors.RED, borderRadius: Radius.CARD, flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: Spacing.XS },
-})
-
-// ── Text styles ───────────────────────────────────────────────
-const ts = StyleSheet.create<Record<string, TextStyle>>({
-  topTitle:       { fontSize: FontSize.MD,   fontWeight: FontWeight.BOLD,    color: Colors.BLACK },
-  backArrow:      { fontSize: 18,            color: Colors.BLACK },
-  dotNum:         { fontSize: FontSize.XS,   fontWeight: FontWeight.BOLD,    color: Colors.MUTED },
-  dotNumActive:   { color: Colors.WHITE },
-  dotLabel:       { fontSize: FontSize.XS,   color: Colors.MUTED,            marginLeft: 4 },
-  dotLabelActive: { color: Colors.BLACK,     fontWeight: FontWeight.SEMIBOLD },
-  stepTitle:      { fontSize: FontSize.XL,   fontWeight: FontWeight.BOLD,    color: Colors.BLACK, marginBottom: 4 },
-  stepSub:        { fontSize: FontSize.SM,   color: Colors.MUTED,            marginBottom: Spacing.SM },
-  removeBtnText:  { fontSize: 10,            color: Colors.WHITE,            fontWeight: FontWeight.BOLD },
-  addIcon:        { fontSize: 28,            color: Colors.MUTED },
-  pickBtnText:    { fontSize: FontSize.MD,   fontWeight: FontWeight.SEMIBOLD, color: Colors.WHITE },
-  tip:            { fontSize: FontSize.XS,   color: Colors.MUTED,            lineHeight: 18, marginTop: Spacing.XS },
-  fieldLabel:     { fontSize: FontSize.SM,   fontWeight: FontWeight.SEMIBOLD, color: Colors.BLACK, marginBottom: Spacing.XS },
-  textInput:      { height: Size.BUTTON_HEIGHT, borderWidth: 1.5, borderColor: Colors.BORDER, borderRadius: Radius.INPUT, paddingHorizontal: Spacing.SM, fontSize: FontSize.BASE, color: Colors.BLACK, marginBottom: Spacing.MD },
-  pillText:       { fontSize: FontSize.SM,   color: Colors.MUTED },
-  pillTextActive: { color: Colors.WHITE,     fontWeight: FontWeight.SEMIBOLD },
-  pricePrefixText:{ fontSize: 24,            fontWeight: FontWeight.BOLD,    color: Colors.BLACK },
-  priceInput:     { flex: 1,                 fontSize: 48,                   fontWeight: FontWeight.BOLD, color: Colors.BLACK },
-  earningsLabel:  { fontSize: FontSize.XS,   color: Colors.MUTED,            marginBottom: 2 },
-  earningsValue:  { fontSize: FontSize.LG,   fontWeight: FontWeight.BOLD,    color: Colors.BLACK },
-  bubbleQ:        { fontSize: FontSize.BASE,  fontWeight: FontWeight.MEDIUM,  color: Colors.BLACK },
-  bubbleInput:    { borderWidth: 1.5,         borderColor: Colors.BORDER,     borderRadius: Radius.INPUT, padding: Spacing.SM, fontSize: FontSize.BASE, color: Colors.BLACK, minHeight: 48 },
-  listBtnText:    { fontSize: FontSize.MD,   fontWeight: FontWeight.BOLD,    color: Colors.WHITE },
-  skipText:       { fontSize: FontSize.SM,   color: Colors.MUTED },
-  loadingText:    { fontSize: FontSize.SM,   color: Colors.WHITE,            fontWeight: FontWeight.MEDIUM },
-})
-
-const is = StyleSheet.create<Record<string, ImageStyle>>({
-  thumb: { width: '100%', height: '100%' },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+  topBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: spacing.xl, paddingBottom: 12,
+    borderBottomWidth: 1, borderBottomColor: colors.divider,
+  },
+  closeBtn: {
+    width: 36, height: 36, backgroundColor: colors.bgElevated,
+    borderRadius: radius.subtle, alignItems: 'center', justifyContent: 'center',
+  },
+  topLabel: { fontFamily: fonts.body, fontSize: 11, letterSpacing: 1.5, textTransform: 'uppercase', color: colors.textTertiary },
+  draftText: { fontFamily: fonts.body, fontSize: 13, color: colors.textTertiary },
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 20 },
+  section: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
+  field: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl },
+  label: { fontFamily: fonts.body, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', color: colors.textTertiary, marginBottom: spacing.sm },
+  photosRow: { gap: 10, paddingBottom: 4 },
+  coverSlot: {
+    width: 112, height: 112, backgroundColor: colors.bgElevated,
+    borderWidth: 2, borderStyle: 'dashed', borderColor: colors.border,
+    borderRadius: radius.subtle, alignItems: 'center', justifyContent: 'center', gap: 6,
+  },
+  coverSlotText: { fontFamily: fonts.body, fontSize: 10, letterSpacing: 1, color: colors.textTertiary, textTransform: 'uppercase' },
+  photoSlot: {
+    width: 80, height: 112, backgroundColor: colors.bgElevated,
+    borderWidth: 1, borderStyle: 'dashed', borderColor: colors.border,
+    borderRadius: radius.subtle, alignItems: 'center', justifyContent: 'center',
+  },
+  photoHint: { fontFamily: fonts.body, fontSize: 11, color: colors.textTertiary, marginTop: spacing.sm },
+  videoSlot: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: colors.bgElevated, borderWidth: 2, borderStyle: 'dashed',
+    borderColor: colors.border, borderRadius: radius.subtle, padding: 14,
+  },
+  videoSlotActive: { borderColor: `${colors.verified}50`, backgroundColor: `${colors.verified}08` },
+  videoIcon: {
+    width: 48, height: 48, borderRadius: radius.subtle,
+    backgroundColor: colors.bgHigher, alignItems: 'center', justifyContent: 'center',
+  },
+  videoIconActive: { backgroundColor: `${colors.verified}20` },
+  videoTitle: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.textPrimary },
+  videoSub: { fontFamily: fonts.body, fontSize: 11, color: colors.textTertiary, marginTop: 2 },
+  videoNotice: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 8,
+    backgroundColor: `${colors.red}10`, borderWidth: 1, borderColor: `${colors.red}30`,
+    borderRadius: radius.subtle, paddingHorizontal: 12, paddingVertical: 10, marginTop: 8,
+  },
+  videoNoticeText: { fontFamily: fonts.body, fontSize: 11, color: colors.textSecondary, flex: 1, lineHeight: 16 },
+  slotImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: radius.subtle },
+  removeBtn: {
+    position: 'absolute', top: 4, right: 4,
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center',
+  },
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.bgElevated, borderWidth: 1,
+    borderColor: colors.border, borderRadius: radius.subtle, paddingHorizontal: 14,
+  },
+  input: { flex: 1, height: 48, fontFamily: fonts.body, fontSize: 15, color: colors.textPrimary, paddingVertical: 0 },
+  rupeePrefix: { fontFamily: fonts.mono, fontSize: 24, color: colors.textSecondary, marginRight: 4 },
+  priceInput: { fontFamily: fonts.mono, fontSize: 28, height: 56 },
+  dropdown: {
+    backgroundColor: colors.bgElevated, borderWidth: 1,
+    borderColor: colors.border, borderRadius: radius.subtle, marginTop: 4, zIndex: 50,
+  },
+  dropSearch: { padding: 8 },
+  dropSearchInput: {
+    backgroundColor: colors.bgHigher, borderWidth: 1,
+    borderColor: colors.border, borderRadius: radius.subtle,
+    paddingHorizontal: 12, paddingVertical: 8,
+    fontFamily: fonts.body, fontSize: 14, color: colors.textPrimary,
+  },
+  dropItem: { paddingHorizontal: 14, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.divider },
+  dropText: { fontFamily: fonts.body, fontSize: 14, color: colors.textSecondary },
+  chipGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chipRow: { flexDirection: 'row', gap: 8 },
+  chip: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: radius.subtle, borderWidth: 1, borderColor: colors.border,
+  },
+  chipWide: { flex: 1, alignItems: 'center' },
+  chipSelected: { backgroundColor: colors.textPrimary, borderColor: colors.textPrimary },
+  chipText: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.textSecondary },
+  chipTextSelected: { color: colors.bg },
+  sizeChip: {
+    width: 48, height: 40, borderRadius: radius.subtle,
+    borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center',
+  },
+  conditionList: { gap: 8 },
+  conditionCard: {
+    padding: 14, borderRadius: radius.subtle,
+    borderWidth: 1, borderColor: colors.border,
+  },
+  conditionCardSelected: { borderColor: colors.textPrimary, backgroundColor: colors.bgElevated },
+  conditionLabel: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.textSecondary },
+  conditionDesc: { fontFamily: fonts.body, fontSize: 12, color: colors.textTertiary, marginTop: 2 },
+  payoutCard: {
+    backgroundColor: colors.bgElevated, borderWidth: 1,
+    borderColor: colors.border, borderRadius: radius.subtle, padding: 12, marginTop: 10,
+  },
+  payoutRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  payoutDivider: { borderTopWidth: 1, borderTopColor: colors.divider, paddingTop: 6, marginTop: 2 },
+  payoutKey: { fontFamily: fonts.body, fontSize: 13, color: colors.textTertiary },
+  payoutVal: { fontFamily: fonts.mono, fontSize: 13, color: colors.textSecondary },
+  descFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+  aiBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  aiBtnText: { fontFamily: fonts.body, fontSize: 12, color: colors.warning },
+  charCount: { fontFamily: fonts.body, fontSize: 11, color: colors.textTertiary },
+  verifiedNotice: {
+    backgroundColor: colors.bgElevated, borderWidth: 1,
+    borderColor: colors.border, borderRadius: radius.subtle, padding: spacing.lg,
+  },
+  verifiedText: { fontFamily: fonts.body, fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
+  bottomBar: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    flexDirection: 'row', gap: 12, padding: spacing.xl, paddingBottom: 32,
+    backgroundColor: colors.bg, borderTopWidth: 1, borderTopColor: colors.divider,
+  },
+  saveDraftBtn: {
+    width: '35%', height: 52, borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.subtle, alignItems: 'center', justifyContent: 'center',
+  },
+  saveDraftText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.textSecondary },
+  submitBtn: {
+    flex: 1, height: 52, backgroundColor: colors.red,
+    borderRadius: radius.subtle, flexDirection: 'row',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  submitText: { fontFamily: fonts.bodySemi, fontSize: 14, color: colors.textPrimary },
 })

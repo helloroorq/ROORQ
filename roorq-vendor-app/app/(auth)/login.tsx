@@ -1,233 +1,284 @@
 import { useState } from 'react'
 import {
-  View, Text, TextInput, TouchableOpacity,
-  StyleSheet, KeyboardAvoidingView, Platform,
-  ScrollView, ActivityIndicator, Alert, ViewStyle, TextStyle,
+  View, Text, StyleSheet, TouchableOpacity, TextInput,
+  ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator,
 } from 'react-native'
-import { Colors, Spacing, Radius, Size, FontSize, FontWeight } from '@/theme'
-import { supabase } from '@/lib/supabase'
+import { useRouter } from 'expo-router'
+import { StatusBar } from 'expo-status-bar'
+import { ArrowLeft, Eye, EyeOff, Mail, Phone } from 'lucide-react-native'
+import { supabase } from '../../lib/supabase'
+import { RoorqLogo } from '../../src/components/common/RoorqLogo'
+import { colors } from '../../src/constants/colors'
+import { fonts } from '../../src/constants/typography'
+import { spacing, radius } from '../../src/constants/spacing'
 
-type Method    = 'email' | 'phone'
-type EmailStep = 'enter_email' | 'enter_otp'
-type PhoneStep = 'enter_phone' | 'enter_otp'
+type Mode = 'email' | 'mobile'
 
 export default function LoginScreen() {
-  const [method, setMethod]       = useState<Method>('email')
-  const [email, setEmail]         = useState('')
-  const [emailStep, setEmailStep] = useState<EmailStep>('enter_email')
-  const [phone, setPhone]         = useState('')
-  const [otp, setOtp]             = useState('')
-  const [phoneStep, setPhoneStep] = useState<PhoneStep>('enter_phone')
-  const [loading, setLoading]     = useState(false)
+  const router = useRouter()
+  const [mode, setMode] = useState<Mode>('email')
+  const [email, setEmail] = useState('')
+  const [mobile, setMobile] = useState('')
+  const [password, setPassword] = useState('')
+  const [otp, setOtp] = useState('')
+  const [showPass, setShowPass] = useState(false)
+  const [otpSent, setOtpSent] = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
 
-  async function sendEmailOtp() {
-    if (!email.trim()) return Alert.alert('Enter your email address')
-    setLoading(true)
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: { shouldCreateUser: true },
-    })
-    setLoading(false)
-    if (error) return Alert.alert('Error', error.message)
-    setEmailStep('enter_otp')
-  }
-
-  async function verifyEmailOtp() {
-    if (otp.length !== 6) return Alert.alert('Enter the 6-digit code')
-    setLoading(true)
-    const { error } = await supabase.auth.verifyOtp({
-      email: email.trim().toLowerCase(),
-      token: otp,
-      type:  'email',
-    })
-    setLoading(false)
-    if (error) return Alert.alert('Wrong code', error.message)
-  }
-
-  async function sendPhoneOtp() {
-    if (phone.length < 10) return Alert.alert('Enter a valid 10-digit number')
-    setLoading(true)
-    const { error } = await supabase.auth.signInWithOtp({ phone: `+91${phone}` })
-    setLoading(false)
-    if (error) return Alert.alert('Error', error.message)
-    setPhoneStep('enter_otp')
-  }
-
-  async function verifyPhoneOtp() {
-    if (otp.length !== 6) return Alert.alert('Enter the 6-digit code')
-    setLoading(true)
-    const { error } = await supabase.auth.verifyOtp({
-      phone: `+91${phone}`, token: otp, type: 'sms',
-    })
-    setLoading(false)
-    if (error) return Alert.alert('Wrong code', error.message)
+  const handleLogin = async () => {
+    setError('')
+    if (mode === 'email') {
+      if (!email || !password) { setError('Please fill all fields'); return }
+      setLoading(true)
+      const { data: signInData, error: err } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      setLoading(false)
+      if (err) {
+        if (err.message.toLowerCase().includes('email not confirmed') ||
+            err.message.toLowerCase().includes('email_not_confirmed')) {
+          setError('Please confirm your email first — check your inbox for the confirmation link.')
+        } else if (err.message.toLowerCase().includes('invalid login credentials')) {
+          setError('Incorrect email or password.')
+        } else {
+          setError(err.message)
+        }
+        return
+      }
+      // If vendor hasn't completed onboarding, send them there
+      const uid = signInData.user?.id
+      if (uid) {
+        const { data: vendor } = await supabase
+          .from('vendors')
+          .select('setup_complete')
+          .eq('id', uid)
+          .single()
+        if (vendor && !vendor.setup_complete) {
+          router.replace(`/(auth)/onboarding?userId=${uid}` as any)
+          return
+        }
+      }
+      router.replace('/' as any)
+    } else {
+      if (!mobile) { setError('Please enter your mobile number'); return }
+      if (!otpSent) {
+        setLoading(true)
+        const { error: err } = await supabase.auth.signInWithOtp({ phone: `+91${mobile.trim()}` })
+        setLoading(false)
+        if (err) { setError(err.message); return }
+        setOtpSent(true)
+        return
+      }
+      if (otp.length < 6) { setError('Enter the 6-digit OTP'); return }
+      setLoading(true)
+      const { error: err } = await supabase.auth.verifyOtp({
+        phone: `+91${mobile.trim()}`, token: otp, type: 'sms',
+      })
+      setLoading(false)
+      if (err) { setError(err.message); return }
+      router.replace('/' as any)
+    }
   }
 
   return (
-    <KeyboardAvoidingView
-      style={vs.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-      <ScrollView contentContainerStyle={vs.container} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}>
+      <StatusBar style="light" />
+      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+          <ArrowLeft size={18} color={colors.textPrimary} />
+        </TouchableOpacity>
 
-        {/* Logo */}
-        <View style={vs.logoBlock}>
-          <Text style={ts.logo}>roorq</Text>
-          <Text style={ts.subtitle}>Vendor Portal</Text>
+        <RoorqLogo width={100} style={{ marginBottom: spacing.xxl }} />
+        <Text style={styles.title}>Welcome back</Text>
+        <Text style={styles.subtitle}>Sign in to manage your shop</Text>
+
+        {/* Mode toggle */}
+        <View style={styles.modeRow}>
+          {(['email', 'mobile'] as Mode[]).map(m => (
+            <TouchableOpacity
+              key={m}
+              style={[styles.modeBtn, mode === m && styles.modeBtnActive]}
+              onPress={() => { setMode(m); setError(''); setOtpSent(false); setOtp('') }}
+            >
+              {m === 'email'
+                ? <Mail size={14} color={mode === m ? colors.textPrimary : colors.textTertiary} />
+                : <Phone size={14} color={mode === m ? colors.textPrimary : colors.textTertiary} />}
+              <Text style={[styles.modeBtnText, mode === m && styles.modeBtnTextActive]}>
+                {m === 'email' ? 'Email' : 'Mobile'}
+              </Text>
+            </TouchableOpacity>
+          ))}
         </View>
 
-        {/* Toggle */}
-        <View style={vs.toggle}>
-          <TouchableOpacity
-            style={[vs.toggleBtn, method === 'email' && vs.toggleActive]}
-            onPress={() => setMethod('email')}
-            activeOpacity={0.8}
-          >
-            <Text style={[ts.toggleText, method === 'email' && ts.toggleTextActive]}>
-              Email
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[vs.toggleBtn, method === 'phone' && vs.toggleActive]}
-            onPress={() => setMethod('phone')}
-            activeOpacity={0.8}
-          >
-            <Text style={[ts.toggleText, method === 'phone' && ts.toggleTextActive]}>
-              📱 WhatsApp
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* ── EMAIL FLOW ── */}
-        {method === 'email' && emailStep === 'enter_email' && (
-          <>
-            <Text style={ts.label}>Your email address</Text>
-            <TextInput
-              style={ts.input}
-              placeholder="you@example.com"
-              placeholderTextColor={Colors.MUTED}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={email}
-              onChangeText={setEmail}
-              onSubmitEditing={sendEmailOtp}
-              returnKeyType="send"
-            />
-            <TouchableOpacity style={vs.primaryBtn} onPress={sendEmailOtp} disabled={loading} activeOpacity={0.85}>
-              {loading ? <ActivityIndicator color={Colors.WHITE} /> : <Text style={ts.primaryBtnText}>Send Code →</Text>}
-            </TouchableOpacity>
-            <Text style={ts.hint}>We'll send a 6-digit code to your email.</Text>
-          </>
-        )}
-
-        {method === 'email' && emailStep === 'enter_otp' && (
-          <>
-            <View style={vs.sentBadge}>
-              <Text style={ts.sentBadgeText}>📧 Code sent to {email}</Text>
-            </View>
-            <Text style={ts.label}>Enter 6-digit code</Text>
-            <TextInput
-              style={ts.otpInput}
-              placeholder="• • • • • •"
-              placeholderTextColor={Colors.MUTED}
-              keyboardType="number-pad"
-              maxLength={6}
-              value={otp}
-              onChangeText={setOtp}
-              textAlign="center"
-              autoFocus
-            />
-            <TouchableOpacity style={vs.primaryBtn} onPress={verifyEmailOtp} disabled={loading} activeOpacity={0.85}>
-              {loading ? <ActivityIndicator color={Colors.WHITE} /> : <Text style={ts.primaryBtnText}>Confirm & Login</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => { setEmailStep('enter_email'); setOtp('') }} style={vs.backBtn}>
-              <Text style={ts.backBtnText}>Use a different email</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* ── PHONE FLOW ── */}
-        {method === 'phone' && phoneStep === 'enter_phone' && (
-          <>
-            <Text style={ts.label}>WhatsApp number</Text>
-            <View style={vs.phoneRow}>
-              <View style={vs.prefix}>
-                <Text style={ts.prefixText}>🇮🇳 +91</Text>
+        {mode === 'email' ? (
+          <View style={styles.fields}>
+            <View>
+              <Text style={styles.label}>EMAIL</Text>
+              <View style={styles.inputWrap}>
+                <TextInput
+                  style={styles.input}
+                  value={email} onChangeText={setEmail}
+                  placeholder="you@example.com"
+                  placeholderTextColor={colors.textTertiary}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
               </View>
-              <TextInput
-                style={ts.phoneInput}
-                placeholder="98765 43210"
-                placeholderTextColor={Colors.MUTED}
-                keyboardType="number-pad"
-                maxLength={10}
-                value={phone}
-                onChangeText={setPhone}
-              />
             </View>
-            <TouchableOpacity style={vs.primaryBtn} onPress={sendPhoneOtp} disabled={loading} activeOpacity={0.85}>
-              {loading ? <ActivityIndicator color={Colors.WHITE} /> : <Text style={ts.primaryBtnText}>Send OTP</Text>}
-            </TouchableOpacity>
-            <Text style={ts.hint}>We'll send a 6-digit code to your WhatsApp</Text>
-          </>
+            <View>
+              <Text style={styles.label}>PASSWORD</Text>
+              <View style={styles.inputWrap}>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={password} onChangeText={setPassword}
+                  placeholder="Enter password"
+                  placeholderTextColor={colors.textTertiary}
+                  secureTextEntry={!showPass}
+                />
+                <TouchableOpacity onPress={() => setShowPass(p => !p)} style={{ padding: 4 }}>
+                  {showPass
+                    ? <EyeOff size={16} color={colors.textTertiary} />
+                    : <Eye size={16} color={colors.textTertiary} />}
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.forgotRow}>
+                <Text style={styles.forgotText}>Forgot password?</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.fields}>
+            <View>
+              <Text style={styles.label}>MOBILE NUMBER</Text>
+              <View style={styles.inputWrap}>
+                <View style={styles.prefix}>
+                  <Text style={styles.prefixText}>+91</Text>
+                </View>
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  value={mobile} onChangeText={setMobile}
+                  placeholder="98765 43210"
+                  placeholderTextColor={colors.textTertiary}
+                  keyboardType="phone-pad"
+                  editable={!otpSent}
+                />
+              </View>
+            </View>
+            {otpSent && (
+              <View>
+                <Text style={styles.label}>ENTER OTP</Text>
+                <View style={styles.inputWrap}>
+                  <TextInput
+                    style={[styles.input, { letterSpacing: 8, fontSize: 20, fontFamily: fonts.mono }]}
+                    value={otp} onChangeText={setOtp}
+                    placeholder="------"
+                    placeholderTextColor={colors.textTertiary}
+                    keyboardType="number-pad"
+                    maxLength={6}
+                  />
+                </View>
+                <TouchableOpacity onPress={() => { setOtpSent(false); setOtp('') }}>
+                  <Text style={[styles.link, { marginTop: 6 }]}>Change number</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         )}
 
-        {method === 'phone' && phoneStep === 'enter_otp' && (
-          <>
-            <Text style={ts.otpSub}>Code sent to +91 {phone}</Text>
-            <TextInput
-              style={ts.otpInput}
-              placeholder="• • • • • •"
-              placeholderTextColor={Colors.MUTED}
-              keyboardType="number-pad"
-              maxLength={6}
-              value={otp}
-              onChangeText={setOtp}
-              textAlign="center"
-            />
-            <TouchableOpacity style={vs.primaryBtn} onPress={verifyPhoneOtp} disabled={loading} activeOpacity={0.85}>
-              {loading ? <ActivityIndicator color={Colors.WHITE} /> : <Text style={ts.primaryBtnText}>Confirm & Login</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => { setPhoneStep('enter_phone'); setOtp('') }} style={vs.backBtn}>
-              <Text style={ts.backBtnText}>Change number</Text>
-            </TouchableOpacity>
-          </>
-        )}
+        {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
 
+        <TouchableOpacity
+          style={[styles.submitBtn, loading && { opacity: 0.6 }]}
+          onPress={handleLogin} disabled={loading} activeOpacity={0.85}
+        >
+          {loading && <ActivityIndicator size="small" color={colors.textPrimary} style={{ marginRight: 8 }} />}
+          <Text style={styles.submitText}>
+            {loading
+              ? (mode === 'mobile' && !otpSent ? 'Sending OTP...' : 'Signing in...')
+              : (mode === 'mobile' && !otpSent ? 'Send OTP' : 'Log In')}
+          </Text>
+        </TouchableOpacity>
+
+        <Text style={styles.whatsapp}>
+          Having trouble? <Text style={{ color: colors.verified }}>Chat on WhatsApp</Text>
+        </Text>
+
+        <View style={styles.signupRow}>
+          <Text style={styles.signupText}>Don't have an account? </Text>
+          <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
+            <Text style={styles.signupLink}>Sign Up</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   )
 }
 
-// ── View styles only ────────────────────────────────────────
-const vs = StyleSheet.create<Record<string, ViewStyle>>({
-  flex:         { flex: 1, backgroundColor: Colors.WHITE },
-  container:    { flexGrow: 1, paddingHorizontal: Spacing.MD, paddingTop: 80, paddingBottom: 40 },
-  logoBlock:    { marginBottom: Spacing.XL },
-  toggle:       { flexDirection: 'row', backgroundColor: Colors.CREAM, borderRadius: Radius.CARD, padding: 4, marginBottom: Spacing.LG },
-  toggleBtn:    { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: Radius.INPUT },
-  toggleActive: { backgroundColor: Colors.WHITE, shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
-  phoneRow:     { flexDirection: 'row', gap: Spacing.XS, marginBottom: Spacing.SM },
-  prefix:       { height: Size.BUTTON_HEIGHT, paddingHorizontal: Spacing.SM, borderWidth: 1.5, borderColor: Colors.BORDER, borderRadius: Radius.INPUT, justifyContent: 'center', backgroundColor: Colors.CREAM },
-  primaryBtn:   { height: Size.BUTTON_HEIGHT, backgroundColor: Colors.RED, borderRadius: Radius.CARD, justifyContent: 'center', alignItems: 'center', marginTop: Spacing.XS },
-  backBtn:      { alignSelf: 'center', marginTop: Spacing.MD, minHeight: Size.TOUCH_TARGET, justifyContent: 'center' },
-  sentBadge:    { backgroundColor: Colors.CREAM, borderRadius: Radius.INPUT, padding: Spacing.SM, marginBottom: Spacing.MD },
-})
-
-// ── Text styles only ────────────────────────────────────────
-const ts = StyleSheet.create<Record<string, TextStyle>>({
-  logo:            { fontSize: 36, fontWeight: FontWeight.BOLD, color: Colors.BLACK, letterSpacing: -1 },
-  subtitle:        { fontSize: FontSize.BASE, color: Colors.MUTED, marginTop: 4 },
-  label:           { fontSize: FontSize.SM, fontWeight: FontWeight.SEMIBOLD, color: Colors.BLACK, marginBottom: Spacing.XS },
-  toggleText:      { fontSize: FontSize.SM, fontWeight: FontWeight.SEMIBOLD, color: Colors.MUTED },
-  toggleTextActive:{ color: Colors.BLACK },
-  input:           { height: Size.BUTTON_HEIGHT, borderWidth: 1.5, borderColor: Colors.BORDER, borderRadius: Radius.INPUT, paddingHorizontal: Spacing.SM, fontSize: FontSize.MD, color: Colors.BLACK, backgroundColor: Colors.WHITE, marginBottom: Spacing.SM },
-  phoneInput:      { flex: 1, height: Size.BUTTON_HEIGHT, borderWidth: 1.5, borderColor: Colors.BORDER, borderRadius: Radius.INPUT, paddingHorizontal: Spacing.SM, fontSize: FontSize.MD, color: Colors.BLACK },
-  otpInput:        { height: Size.BUTTON_HEIGHT, borderWidth: 1.5, borderColor: Colors.BORDER, borderRadius: Radius.INPUT, paddingHorizontal: Spacing.SM, fontSize: 28, fontWeight: FontWeight.BOLD, letterSpacing: 8, color: Colors.BLACK, marginBottom: Spacing.SM },
-  otpSub:          { fontSize: FontSize.SM, color: Colors.MUTED, marginBottom: Spacing.SM },
-  primaryBtnText:  { fontSize: FontSize.MD, fontWeight: FontWeight.BOLD, color: Colors.WHITE },
-  backBtnText:     { fontSize: FontSize.SM, color: Colors.MUTED, textDecorationLine: 'underline' },
-  hint:            { fontSize: FontSize.XS, color: Colors.MUTED, textAlign: 'center', marginTop: Spacing.SM },
-  prefixText:      { fontSize: FontSize.MD, color: Colors.BLACK, fontWeight: FontWeight.MEDIUM },
-  sentBadgeText:   { fontSize: FontSize.SM, color: Colors.MUTED, textAlign: 'center' },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+  scroll: { paddingHorizontal: spacing.xxl, paddingTop: spacing.xxl, paddingBottom: 40 },
+  backBtn: {
+    width: 36, height: 36,
+    backgroundColor: colors.bgElevated,
+    borderRadius: radius.subtle,
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: spacing.xxxl,
+  },
+  title: { fontFamily: fonts.display, fontSize: 24, color: colors.textPrimary, marginBottom: 4 },
+  subtitle: { fontFamily: fonts.body, fontSize: 14, color: colors.textSecondary, marginBottom: spacing.xxl },
+  modeRow: {
+    flexDirection: 'row',
+    backgroundColor: colors.bgElevated,
+    borderRadius: radius.subtle,
+    padding: 3,
+    marginBottom: spacing.xl,
+  },
+  modeBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, paddingVertical: 8, borderRadius: radius.subtle,
+  },
+  modeBtnActive: { backgroundColor: colors.bgHigher },
+  modeBtnText: { fontFamily: fonts.body, fontSize: 13, color: colors.textTertiary },
+  modeBtnTextActive: { color: colors.textPrimary },
+  fields: { gap: spacing.xl },
+  label: {
+    fontFamily: fonts.body, fontSize: 11, letterSpacing: 1,
+    textTransform: 'uppercase', color: colors.textTertiary, marginBottom: spacing.sm,
+  },
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.bgElevated,
+    borderWidth: 1, borderColor: colors.border,
+    borderRadius: radius.subtle, paddingHorizontal: 14,
+  },
+  input: { height: 48, fontFamily: fonts.body, fontSize: 15, color: colors.textPrimary, paddingVertical: 0 },
+  prefix: {
+    paddingRight: spacing.sm, borderRightWidth: 1,
+    borderRightColor: colors.border, marginRight: spacing.sm,
+    height: 48, justifyContent: 'center',
+  },
+  prefixText: { fontFamily: fonts.body, fontSize: 15, color: colors.textSecondary },
+  link: { fontFamily: fonts.body, fontSize: 12, color: colors.verified },
+  forgotRow: { alignItems: 'flex-end', marginTop: 6 },
+  forgotText: { fontFamily: fonts.body, fontSize: 12, color: colors.verified },
+  errorBox: {
+    backgroundColor: colors.redMuted, borderRadius: radius.subtle,
+    paddingVertical: 10, paddingHorizontal: 14, marginTop: spacing.lg,
+  },
+  errorText: { fontFamily: fonts.body, fontSize: 13, color: colors.red, textAlign: 'center' },
+  submitBtn: {
+    height: 52, backgroundColor: colors.red, borderRadius: radius.subtle,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    marginTop: spacing.xxl,
+  },
+  submitText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.textPrimary },
+  whatsapp: {
+    fontFamily: fonts.body, fontSize: 12, color: colors.textTertiary,
+    textAlign: 'center', marginTop: spacing.lg,
+  },
+  signupRow: { flexDirection: 'row', justifyContent: 'center', marginTop: spacing.xl },
+  signupText: { fontFamily: fonts.body, fontSize: 13, color: colors.textSecondary },
+  signupLink: {
+    fontFamily: fonts.bodySemi, fontSize: 13,
+    color: colors.textPrimary, textDecorationLine: 'underline',
+  },
 })

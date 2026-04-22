@@ -1,261 +1,327 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, ViewStyle, TextStyle, RefreshControl,
+  StyleSheet, RefreshControl, ActivityIndicator, Animated,
 } from 'react-native'
 import { useRouter } from 'expo-router'
-import { Colors, Spacing, Radius, Size, FontSize, FontWeight } from '@/theme'
-import { supabase } from '@/lib/supabase'
+import { StatusBar } from 'expo-status-bar'
+import {
+  Package, TrendingUp, DollarSign,
+  CheckCircle, Sparkles, Eye,
+} from 'lucide-react-native'
+import { supabase } from '../../lib/supabase'
+import { AppHeader } from '../../src/components/common/AppHeader'
+import { colors } from '../../src/constants/colors'
+import { fonts } from '../../src/constants/typography'
+import { spacing, radius } from '../../src/constants/spacing'
 
-type DashboardData = {
-  name: string
-  earnedMonth: number
-  pendingPayout: number
-  listed: number
-  sold: number
+function getDropCountdown(targetDate: Date) {
+  const now = new Date()
+  const diff = targetDate.getTime() - now.getTime()
+  if (diff <= 0) return null
+  const d = Math.floor(diff / (1000 * 60 * 60 * 24))
+  const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+  const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+  return `${d}D  ${h}H  ${m}M`
 }
 
-type ActivityItem = {
-  id: string
-  label: string
-  time: string
-  amount: string
-  color: string
+function timeAgo(dateStr: string) {
+  if (!dateStr) return ''
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`
+  return `${Math.floor(diff / 86400)}d ago`
 }
 
-function greeting() {
-  const h = new Date().getHours()
-  if (h < 12) return 'Good morning'
-  if (h < 17) return 'Good afternoon'
-  return 'Good evening'
-}
-
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins  = Math.floor(diff / 60000)
-  const hours = Math.floor(diff / 3600000)
-  const days  = Math.floor(diff / 86400000)
-  if (mins < 60)  return `${mins}m ago`
-  if (hours < 24) return `${hours}h ago`
-  if (days === 1) return 'Yesterday'
-  return `${days} days ago`
-}
-
-const EMPTY: DashboardData = { name: 'there', earnedMonth: 0, pendingPayout: 0, listed: 0, sold: 0 }
-
-export default function DashboardScreen() {
+export default function HomeScreen() {
   const router = useRouter()
-  const [data, setData]         = useState<DashboardData>(EMPTY)
-  const [activity, setActivity] = useState<ActivityItem[]>([])
-  const [loading, setLoading]   = useState(true)
+  const [profile, setProfile] = useState<any>(null)
+  const [orders, setOrders] = useState<any[]>([])
+  const [products, setProducts] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const [countdown, setCountdown] = useState('')
+  const dropDate = new Date('2025-05-02T00:00:00')
+  const pulseAnim = useRef(new Animated.Value(1)).current
 
-  useEffect(() => { load() }, [])
-
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true)
-    else setLoading(true)
-
-    try {
-      const now       = new Date()
-      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-
-      // Run all queries in parallel
-      const [
-        { count: listed },
-        { count: sold },
-        { data: soldProducts },
-        { data: recentProducts },
-      ] = await Promise.all([
-        // All active listings
-        supabase
-          .from('products')
-          .select('*', { count: 'exact', head: true })
-          .eq('is_active', true),
-
-        // Sold (stock = 0)
-        supabase
-          .from('products')
-          .select('*', { count: 'exact', head: true })
-          .eq('stock_quantity', 0),
-
-        // Sold this month — for earnings calc
-        supabase
-          .from('products')
-          .select('vendor_price, updated_at')
-          .eq('stock_quantity', 0)
-          .gte('updated_at', monthStart),
-
-        // Recent 5 products for activity feed
-        supabase
-          .from('products')
-          .select('id, name, vendor_price, stock_quantity, created_at')
-          .order('created_at', { ascending: false })
-          .limit(5),
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 0.4, duration: 1000, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 1000, useNativeDriver: true }),
       ])
-
-      // Sum earnings from sold products this month
-      const earnedMonth = (soldProducts ?? []).reduce(
-        (sum, p) => sum + (Number(p.vendor_price) || 0), 0
-      )
-
-      setData({
-        name:          'Harish',   // swap with session.user.name when auth ready
-        earnedMonth:   Math.floor(earnedMonth),
-        pendingPayout: 0,          // needs orders/payouts table — Step 9+
-        listed:        listed ?? 0,
-        sold:          sold ?? 0,
-      })
-
-      // Build activity feed from recent products
-      const feed: ActivityItem[] = (recentProducts ?? []).map(p => ({
-        id:     p.id,
-        label:  p.stock_quantity === 0
-                  ? `${p.name} sold`
-                  : `${p.name} listed`,
-        time:   timeAgo(p.created_at),
-        amount: p.stock_quantity === 0
-                  ? `+₹${Math.floor(Number(p.vendor_price)).toLocaleString('en-IN')}`
-                  : '',
-        color:  p.stock_quantity === 0 ? Colors.GREEN : Colors.MUTED,
-      }))
-      setActivity(feed)
-
-    } catch (e) {
-      // keep previous data on error
-    } finally {
-      setLoading(false)
-      setRefreshing(false)
-    }
+    ).start()
+    const timer = setInterval(() => {
+      const c = getDropCountdown(dropDate)
+      setCountdown(c || '')
+    }, 60000)
+    setCountdown(getDropCountdown(dropDate) || '')
+    return () => clearInterval(timer)
   }, [])
 
-  const fmt = (n: number) => n.toLocaleString('en-IN')
+  const load = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) { setLoading(false); return }
+    const [{ data: vendor }, { data: ord }, { data: prod }] = await Promise.all([
+      supabase.from('vendors').select('*').eq('id', user.id).single(),
+      supabase.from('orders').select('*').eq('vendor_id', user.id).order('created_at', { ascending: false }).limit(10),
+      supabase.from('products').select('*').eq('vendor_id', user.id).limit(20),
+    ])
+    setProfile(vendor)
+    setOrders(ord || [])
+    setProducts(prod || [])
+    setLoading(false)
+    setRefreshing(false)
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const pendingPayout = orders
+    .filter(o => o.status === 'delivered')
+    .reduce((s, o) => s + Math.round((o.amount || 0) * 0.8), 0)
+  const deliveredCount = orders.filter(o => o.status === 'delivered').length
+  const pendingOrders = orders.filter(o => o.status === 'pending').length
+  const totalEarned = orders
+    .filter(o => o.status === 'delivered')
+    .reduce((s, o) => s + Math.round((o.amount || 0) * 0.8), 0)
+  const firstName = (profile?.full_name || profile?.store_name || '').split(' ')[0] || 'Vendor'
+  const liveListings = products.filter(p => p.status === 'active').length
+
+  const day = new Date().getDay()
+  const weekProgress = Math.min(((day === 0 ? 5 : Math.min(day, 5)) / 5) * 100, 100)
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator color={colors.red} />
+      </View>
+    )
+  }
 
   return (
-    <ScrollView
-      style={vs.screen}
-      contentContainerStyle={vs.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={() => load(true)}
-          tintColor={Colors.RED}
-          colors={[Colors.RED]}
-        />
-      }
-    >
-      {/* Header */}
-      <View style={vs.header}>
-        <Text style={ts.greeting}>{greeting()}, {data.name} 👋</Text>
-        <Text style={ts.headerSub}>Here's your store overview</Text>
-      </View>
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <AppHeader firstName={firstName} pendingOrders={pendingOrders} />
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); load() }}
+            tintColor={colors.red}
+          />
+        }
+      >
+        {/* Greeting */}
+        <View style={styles.px}>
+          <Text style={styles.greeting}>Hey, {firstName} 👋</Text>
+        </View>
 
-      {/* Earnings card */}
-      <View style={vs.earningsCard}>
-        <Text style={ts.earningsLabel}>Earned this month</Text>
-        <Text style={ts.earningsAmount}>
-          {loading ? '—' : `₹${fmt(data.earnedMonth)}`}
-        </Text>
-        <View style={vs.earningsDivider} />
-        <Text style={ts.earningsSub}>
-          {data.sold > 0
-            ? `${data.sold} item${data.sold > 1 ? 's' : ''} sold total`
-            : 'No sales yet — list your first item below!'}
-        </Text>
-      </View>
-
-      {/* Camera / List button */}
-      <View style={vs.cameraSection}>
-        <TouchableOpacity
-          style={vs.cameraBtn}
-          onPress={() => router.push('/list-item')}
-          activeOpacity={0.85}
-        >
-          <Text style={ts.cameraIcon}>📷</Text>
-        </TouchableOpacity>
-        <Text style={ts.cameraLabel}>List an item</Text>
-      </View>
-
-      {/* Stats row */}
-      <View style={vs.statsRow}>
-        {[
-          { label: 'Listed', value: loading ? '—' : String(data.listed) },
-          { label: 'Sold',   value: loading ? '—' : String(data.sold)   },
-          { label: 'Views',  value: '—' },
-        ].map((s) => (
-          <View key={s.label} style={vs.statCard}>
-            <Text style={ts.statValue}>{s.value}</Text>
-            <Text style={ts.statLabel}>{s.label}</Text>
+        {/* Payout Hero */}
+        <View style={styles.px}>
+          <View style={styles.payoutCard}>
+            <Text style={styles.payoutLabel}>PENDING PAYOUT · CLEARS FRIDAY</Text>
+            <Text style={styles.payoutAmount}>
+              ₹{pendingPayout.toLocaleString('en-IN')}
+            </Text>
+            <Text style={styles.payoutSub}>
+              From {deliveredCount} delivered order{deliveredCount !== 1 ? 's' : ''} this week
+            </Text>
+            <View style={styles.progressBg}>
+              <View style={[styles.progressFill, { width: `${weekProgress}%` as any }]} />
+            </View>
           </View>
-        ))}
-      </View>
+        </View>
 
-      {/* Recent activity */}
-      <Text style={ts.sectionTitle}>Recent activity</Text>
-      <View style={vs.activityCard}>
-        {activity.length === 0 ? (
-          <View style={vs.emptyActivity}>
-            <Text style={ts.emptyText}>
-              {loading ? 'Loading...' : 'No activity yet.\nList your first item to get started!'}
+        {/* Quick Stats */}
+        <View style={[styles.px, styles.statsRow]}>
+          {[
+            { label: 'LIVE LISTINGS', value: liveListings.toString(), icon: Package },
+            { label: 'ORDERS (7D)', value: orders.length.toString(), icon: TrendingUp },
+            { label: 'TOTAL EARNED', value: `₹${(totalEarned / 1000).toFixed(1)}K`, icon: DollarSign },
+          ].map(s => (
+            <View key={s.label} style={styles.statCard}>
+              <Text style={styles.statLabel}>{s.label}</Text>
+              <Text style={styles.statValue}>{s.value}</Text>
+            </View>
+          ))}
+        </View>
+
+        {/* Primary CTA */}
+        <View style={styles.px}>
+          <TouchableOpacity
+            style={styles.ctaBtn}
+            onPress={() => router.push('/list-item')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.ctaBtnText}>+ LIST NEW ITEM</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Drop Countdown */}
+        {countdown ? (
+          <View style={styles.px}>
+            <View style={styles.dropCard}>
+              <View style={styles.dropRow}>
+                <Animated.View style={[styles.dropDot, { opacity: pulseAnim }]} />
+                <Text style={styles.dropTitle}>DROP 002 — MAY 2</Text>
+              </View>
+              <Text style={styles.dropSub}>Submit items by April 29 to be featured</Text>
+              <View style={styles.dropBottom}>
+                <Text style={styles.dropTimer}>{countdown}</Text>
+                <TouchableOpacity style={styles.dropBtn}>
+                  <Text style={styles.dropBtnText}>Prepare items</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        ) : null}
+
+        {/* Activity Feed */}
+        <View style={styles.px}>
+          <Text style={styles.sectionLabel}>RECENT ACTIVITY</Text>
+          {orders.length === 0 && products.length === 0 ? (
+            <View style={styles.emptyActivity}>
+              <Text style={styles.emptyText}>
+                No activity yet. List items to get started.
+              </Text>
+            </View>
+          ) : (
+            <>
+              {orders.slice(0, 4).map(o => (
+                <TouchableOpacity
+                  key={o.id}
+                  style={styles.activityRow}
+                  onPress={() => router.push(`/order-detail?id=${o.id}` as any)}
+                >
+                  <View style={[
+                    styles.activityIcon,
+                    { backgroundColor: o.status === 'delivered' ? '#1a3d2a' : o.status === 'pending' ? colors.bgHigher : '#1a2a3d' },
+                  ]}>
+                    {o.status === 'delivered'
+                      ? <CheckCircle size={14} color={colors.verified} />
+                      : <Package size={14} color={colors.textTertiary} />}
+                  </View>
+                  <View style={styles.activityBody}>
+                    <Text style={styles.activityText} numberOfLines={1}>
+                      {o.status === 'delivered'
+                        ? `Order ${o.id?.slice(0, 8)} delivered`
+                        : `Order ${o.id?.slice(0, 8)} — ${o.status}`}
+                      {o.status === 'delivered' && (
+                        <Text style={{ color: colors.textTertiary }}> — ₹{o.amount?.toLocaleString('en-IN')}</Text>
+                      )}
+                    </Text>
+                  </View>
+                  <Text style={styles.activityTime}>{timeAgo(o.created_at)}</Text>
+                </TouchableOpacity>
+              ))}
+              {products.slice(0, 1).map(p => (
+                <View key={p.id} style={styles.activityRow}>
+                  <View style={[styles.activityIcon, { backgroundColor: colors.bgHigher }]}>
+                    <Eye size={14} color={colors.textTertiary} />
+                  </View>
+                  <Text style={[styles.activityText, { flex: 1 }]} numberOfLines={1}>
+                    "{p.title || p.name}" — {p.views || 0} views today
+                  </Text>
+                  <Text style={styles.activityTime}>{timeAgo(p.created_at)}</Text>
+                </View>
+              ))}
+            </>
+          )}
+        </View>
+
+        {/* Pro Tip */}
+        <View style={[styles.px, { marginBottom: spacing.xxxl }]}>
+          <View style={styles.tipCard}>
+            <Sparkles size={16} color={colors.warning} />
+            <Text style={styles.tipText}>
+              <Text style={{ color: colors.textPrimary, fontFamily: fonts.bodySemi }}>PRO TIP: </Text>
+              Post on Instagram when you list — drives 3x more views
             </Text>
           </View>
-        ) : (
-          activity.map((item, i) => (
-            <View
-              key={item.id}
-              style={[vs.activityRow, i < activity.length - 1 && vs.activityBorder]}
-            >
-              <View style={vs.activityLeft}>
-                <Text style={ts.activityLabel}>{item.label}</Text>
-                <Text style={ts.activityTime}>{item.time}</Text>
-              </View>
-              {item.amount ? (
-                <Text style={[ts.activityAmount, { color: item.color }]}>{item.amount}</Text>
-              ) : null}
-            </View>
-          ))
-        )}
-      </View>
-
-      {/* Pull to refresh hint */}
-      <Text style={ts.refreshHint}>Pull down to refresh</Text>
-
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </View>
   )
 }
 
-const vs = StyleSheet.create<Record<string, ViewStyle>>({
-  screen:          { flex: 1, backgroundColor: Colors.CREAM },
-  content:         { paddingHorizontal: Spacing.MD, paddingTop: 60, paddingBottom: 40 },
-  header:          { marginBottom: Spacing.MD },
-  earningsCard:    { backgroundColor: Colors.WHITE, borderRadius: Radius.SHEET, padding: Spacing.MD, marginBottom: Spacing.MD, shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 12, elevation: 3 },
-  earningsDivider: { height: 1, backgroundColor: Colors.BORDER, marginVertical: Spacing.SM },
-  cameraSection:   { alignItems: 'center', marginVertical: Spacing.LG },
-  cameraBtn:       { width: Size.CAMERA_BUTTON, height: Size.CAMERA_BUTTON, borderRadius: Size.CAMERA_BUTTON / 2, backgroundColor: Colors.RED, justifyContent: 'center', alignItems: 'center', shadowColor: Colors.RED, shadowOpacity: 0.35, shadowRadius: 12, elevation: 6 },
-  statsRow:        { flexDirection: 'row', gap: Spacing.XS, marginBottom: Spacing.LG },
-  statCard:        { flex: 1, backgroundColor: Colors.WHITE, borderRadius: Radius.CARD, padding: Spacing.SM, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
-  activityCard:    { backgroundColor: Colors.WHITE, borderRadius: Radius.CARD, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2 },
-  activityRow:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: Spacing.SM, paddingVertical: 14 },
-  activityBorder:  { borderBottomWidth: 1, borderBottomColor: Colors.BORDER },
-  activityLeft:    { flex: 1 },
-  emptyActivity:   { padding: Spacing.LG, alignItems: 'center' },
-})
-
-const ts = StyleSheet.create<Record<string, TextStyle>>({
-  greeting:       { fontSize: FontSize.XL, fontWeight: FontWeight.BOLD, color: Colors.BLACK },
-  headerSub:      { fontSize: FontSize.SM, color: Colors.MUTED, marginTop: 2 },
-  earningsLabel:  { fontSize: FontSize.SM, color: Colors.MUTED, fontWeight: FontWeight.MEDIUM },
-  earningsAmount: { fontSize: FontSize.XXL, fontWeight: FontWeight.BOLD, color: Colors.BLACK, marginTop: 4 },
-  earningsSub:    { fontSize: FontSize.SM, color: Colors.MUTED },
-  cameraIcon:     { fontSize: 32 },
-  cameraLabel:    { fontSize: FontSize.SM, fontWeight: FontWeight.SEMIBOLD, color: Colors.MUTED, marginTop: Spacing.XS },
-  statValue:      { fontSize: FontSize.XL, fontWeight: FontWeight.BOLD, color: Colors.BLACK },
-  statLabel:      { fontSize: FontSize.XS, color: Colors.MUTED, marginTop: 2, textAlign: 'center' },
-  sectionTitle:   { fontSize: FontSize.MD, fontWeight: FontWeight.BOLD, color: Colors.BLACK, marginBottom: Spacing.XS },
-  activityLabel:  { fontSize: FontSize.BASE, fontWeight: FontWeight.MEDIUM, color: Colors.BLACK },
-  activityTime:   { fontSize: FontSize.XS, color: Colors.MUTED, marginTop: 2 },
-  activityAmount: { fontSize: FontSize.BASE, fontWeight: FontWeight.BOLD },
-  emptyText:      { fontSize: FontSize.SM, color: Colors.MUTED, textAlign: 'center', lineHeight: 22 },
-  refreshHint:    { fontSize: FontSize.XS, color: Colors.BORDER, textAlign: 'center', marginTop: Spacing.LG },
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
+  centered: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' },
+  px: { paddingHorizontal: spacing.xl, marginBottom: spacing.lg },
+  greeting: {
+    fontFamily: fonts.bodySemi, fontSize: 18,
+    color: colors.textPrimary, marginBottom: 0,
+  },
+  payoutCard: {
+    backgroundColor: colors.bgElevated, borderWidth: 1,
+    borderColor: colors.border, borderRadius: radius.subtle, padding: spacing.xl,
+  },
+  payoutLabel: {
+    fontFamily: fonts.body, fontSize: 11, letterSpacing: 1,
+    textTransform: 'uppercase', color: colors.textTertiary, marginBottom: 8,
+  },
+  payoutAmount: { fontFamily: fonts.mono, fontSize: 42, color: colors.textPrimary, lineHeight: 50 },
+  payoutSub: { fontFamily: fonts.body, fontSize: 13, color: colors.textSecondary, marginTop: 8 },
+  progressBg: {
+    height: 4, backgroundColor: colors.bgHigher,
+    borderRadius: 2, marginTop: spacing.lg, overflow: 'hidden',
+  },
+  progressFill: { height: 4, backgroundColor: colors.red, borderRadius: 2 },
+  statsRow: { flexDirection: 'row', gap: 10 },
+  statCard: {
+    flex: 1, backgroundColor: colors.bgElevated, borderWidth: 1,
+    borderColor: colors.border, borderRadius: radius.subtle, padding: 12,
+  },
+  statLabel: {
+    fontFamily: fonts.body, fontSize: 10, letterSpacing: 1,
+    textTransform: 'uppercase', color: colors.textTertiary,
+  },
+  statValue: { fontFamily: fonts.mono, fontSize: 18, color: colors.textPrimary, marginTop: 4 },
+  ctaBtn: {
+    height: 52, backgroundColor: colors.red,
+    borderRadius: radius.subtle, alignItems: 'center', justifyContent: 'center',
+  },
+  ctaBtnText: { fontFamily: fonts.bodySemi, fontSize: 15, color: colors.textPrimary },
+  dropCard: {
+    backgroundColor: colors.redMuted, borderWidth: 1,
+    borderColor: `${colors.red}50`, borderRadius: radius.subtle, padding: spacing.lg,
+  },
+  dropRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  dropDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.red },
+  dropTitle: { fontFamily: fonts.bodySemi, fontSize: 13, color: colors.textPrimary },
+  dropSub: { fontFamily: fonts.body, fontSize: 12, color: colors.textSecondary },
+  dropBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  dropTimer: { fontFamily: fonts.mono, fontSize: 13, color: colors.textPrimary },
+  dropBtn: {
+    paddingHorizontal: 12, paddingVertical: 6,
+    backgroundColor: colors.red, borderRadius: radius.subtle,
+  },
+  dropBtnText: { fontFamily: fonts.bodySemi, fontSize: 11, color: colors.textPrimary },
+  sectionLabel: {
+    fontFamily: fonts.body, fontSize: 11, letterSpacing: 1,
+    textTransform: 'uppercase', color: colors.textTertiary, marginBottom: 12,
+  },
+  emptyActivity: { paddingVertical: spacing.xl },
+  emptyText: {
+    fontFamily: fonts.body, fontSize: 13,
+    color: colors.textTertiary, textAlign: 'center',
+  },
+  activityRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.divider,
+  },
+  activityIcon: {
+    width: 32, height: 32, borderRadius: radius.subtle,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  activityBody: { flex: 1 },
+  activityText: { fontFamily: fonts.body, fontSize: 13, color: colors.textPrimary },
+  activityTime: { fontFamily: fonts.body, fontSize: 11, color: colors.textTertiary },
+  tipCard: {
+    backgroundColor: colors.bgElevated, borderWidth: 1,
+    borderColor: colors.border, borderRadius: radius.subtle,
+    padding: spacing.lg, flexDirection: 'row', gap: 12, alignItems: 'flex-start',
+  },
+  tipText: { fontFamily: fonts.body, fontSize: 13, color: colors.textSecondary, flex: 1, lineHeight: 20 },
 })

@@ -10,7 +10,7 @@ import {
   Section,
 } from '@react-email/components';
 
-const main = {
+const main = {  
   backgroundColor: '#ffffff',
   fontFamily: 'HelveticaNeue,Helvetica,Arial,sans-serif',
 };

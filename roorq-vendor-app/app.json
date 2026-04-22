@@ -1,15 +1,16 @@
 {
   "expo": {
-    "name": "roorq-vendor-app",
+    "name": "ROORQ Vendor",
     "slug": "roorq-vendor-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "roorqvendorapp",
+    "scheme": "roorq-vendor",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.roorq.vendor"
     },
     "android": {
       "adaptiveIcon": {
@@ -20,7 +21,17 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.roorqvendorapp"
+      "package": "com.roorq.vendor",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            { "scheme": "roorq-vendor" }
+          ],
+          "category": ["DEFAULT", "BROWSABLE"]
+        }
+      ]
     },
     "web": {
       "output": "static",
