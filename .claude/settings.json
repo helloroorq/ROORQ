@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cd \"/c/Users/nenav/OneDrive/Desktop/roorq-final/roorq-live\" && git add -A 2>/dev/null | true; git diff --cached --quiet || (git commit -m \"claude: auto-save $(date +%Y-%m-%dT%H%M%S)\" && git push origin harish)",
+            "timeout": 60,
+            "statusMessage": "Auto-saving to harish..."
+          }
+        ]
+      }
+    ]
+  }
+}
