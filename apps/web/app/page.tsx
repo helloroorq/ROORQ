@@ -6,6 +6,7 @@ import HomeFeatureStrip from '@/components/home/HomeFeatureStrip'
 import HomePromoCarousel from '@/components/home/HomePromoCarousel'
 import HomeStyleGrid from '@/components/home/HomeStyleGrid'
 import HomeTrendingRail from '@/components/home/HomeTrendingRail'
+import CountdownBanner from '@/components/home/CountdownBanner'
 import { createClient } from '@/lib/supabase/server'
 import { getMarketplaceReadClient } from '@/lib/marketplace/public'
 import { buildMetadata } from '@/lib/seo/metadata'
@@ -14,9 +15,9 @@ import type { MarketplaceProduct, StyleTile } from '@/components/home/types'
 export const metadata = buildMetadata({
   title: 'Marketplace',
   description:
-    'Image-first vintage marketplace for IIT Roorkee. Browse trending drops, discover sellers, and shop campus-safe.',
+    'Drop 001 — The IITR Edit drops May 15, 6 PM. 30 hand-picked pre-loved pieces curated exclusively for IIT Roorkee. Image-first vintage marketplace — browse, discover, shop.',
   path: '/',
-  keywords: ['Roorq marketplace', 'vintage marketplace', 'IIT Roorkee fashion', 'buy and sell vintage'],
+  keywords: ['Roorq marketplace', 'vintage marketplace', 'IIT Roorkee fashion', 'buy and sell vintage', 'Drop 001', 'IITR Edit'],
 })
 
 const FALLBACK_STYLE_IMAGES: Record<string, string> = {
@@ -30,12 +31,12 @@ const FALLBACK_STYLE_IMAGES: Record<string, string> = {
 
 const PROMO_SLIDES = [
   {
-    title: 'Drop 001 — The IITR Edit is live.',
+    title: 'Drop 001 — The IITR Edit. May 15, 6 PM.',
     subtitle: 'Drop 001',
     description:
-      '28 March, 6 PM. Hand-picked vintage pieces curated exclusively for IIT Roorkee. Limited stock. Once sold, gone forever.',
-    href: '/shop',
-    cta: 'Shop the drop',
+      '15 May, 6 PM. 30 hand-picked pre-loved pieces curated exclusively for IIT Roorkee. Limited stock. Once it’s gone, it’s gone forever.',
+    href: '/drops',
+    cta: 'Get notified',
     image: 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=1400&q=80',
   },
   {
@@ -175,6 +176,7 @@ export default async function Home() {
       <Navbar />
       <main className="pb-16">
         <HomeHero heroProducts={heroProducts} />
+        <CountdownBanner />
         <HomeFeatureStrip
           listingCount={listingCount ?? liveProducts.length}
           sellerCount={sellerCount ?? 0}
