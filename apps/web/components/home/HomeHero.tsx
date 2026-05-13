@@ -108,7 +108,7 @@ export default function HomeHero({ referralCode = 'ROORQ10' }: HomeHeroProps) {
 
         {/* Subtext — one clean line */}
         <p className="mx-auto mt-5 max-w-[340px] text-[15px] leading-7 text-[#020617]/55 sm:max-w-[420px] sm:text-base">
-          India's first Story-Scored vintage marketplace.<br className="hidden sm:block" />
+          India's first pre-loved fashion marketplace.<br className="hidden sm:block" />
           Campus-first. Drop model. IIT Roorkee.
         </p>
 

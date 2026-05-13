@@ -35,7 +35,7 @@ Click **"Add Product"** and fill in:
 Hit **Submit for Review**.
 
 ### Step 4 — Wait for ROORQ's Review
-Our team checks your submission and assigns a **Story Score (1–10)** — usually within **48 hours**. You'll get a WhatsApp message when it's done.
+Our team checks your submission and approves it — usually within **48 hours**. You'll get a WhatsApp message when it's done.
 
 - [ ] Keep WhatsApp notifications on so you don't miss the update.
 
@@ -62,6 +62,6 @@ When the Drop launches, your item is visible to buyers on ROORQ. You'll get noti
 
 ---
 
-**Questions?** WhatsApp us at [ROORQ_WHATSAPP] — we'll get back to you fast.
+**Questions?** WhatsApp us at 6305035519 — we'll get back to you fast.
 
 *roorq.in/vendor*

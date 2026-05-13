@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\nenav\\\\OneDrive\\\\Desktop\\\\roorq-final\\\\roorq-live\" -Filter \"*vendor*\" -Recurse -File)",
+      "Bash(Select-Object FullName)"
+    ]
+  },
   "disabledMcpjsonServers": [
     "figma"
   ]

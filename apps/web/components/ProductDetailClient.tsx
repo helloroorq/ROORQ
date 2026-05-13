@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import AddToCartButton from '@/components/AddToCartButton';
@@ -8,24 +8,6 @@ import StartConversationButton from '@/components/messages/StartConversationButt
 import { formatINR } from '@/lib/utils/currency';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-
-interface StoryScoreBreakdown {
-  label: string;
-  score: number;
-}
-
-interface StoryScoreTimeline {
-  label: string;
-  text: string;
-}
-
-interface StoryScore {
-  total: number;
-  breakdown?: StoryScoreBreakdown[];
-  timeline?: StoryScoreTimeline[];
-  tags?: string[];
-  vendorNote?: string;
-}
 
 interface Store {
   id: string;
@@ -50,7 +32,6 @@ interface Product {
   vendor_id?: string | null;
   stock_quantity: number;
   reserved_quantity: number;
-  story_score?: StoryScore | null;
 }
 
 interface Props {
@@ -62,45 +43,6 @@ interface Props {
 }
 
 // ─── SVG Icons ────────────────────────────────────────────────────────────────
-
-const LeafIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 18 18" fill="none">
-    <path d="M4 14C4 14 4 8 10 4c4-2.5 5-1 5-1s1 1-1 5c-4 6-10 6-10 6z" stroke="#2d6a4f" strokeWidth="1.5" fill="#d8f3dc" strokeLinejoin="round"/>
-    <path d="M4 14c2-2 4-4 7-6" stroke="#2d6a4f" strokeWidth="1.2" strokeLinecap="round"/>
-  </svg>
-);
-
-const StarIcon = () => (
-  <svg width="13" height="13" viewBox="0 0 12 12" fill="none">
-    <path d="M6 1l1.3 2.6 2.9.4-2.1 2 .5 2.9L6 7.6 3.4 8.9l.5-2.9-2.1-2 2.9-.4L6 1z" fill="#2d6a4f"/>
-  </svg>
-);
-
-const ChevronDown = ({ open }: { open: boolean }) => (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-    style={{ transform: open ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.25s ease' }}>
-    <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-  </svg>
-);
-
-const ScoreRing = ({ score, size = 52 }: { score: number; size?: number }) => {
-  const r = (size - 6) / 2;
-  const circ = 2 * Math.PI * r;
-  const pct = score / 10;
-  return (
-    <svg width={size} height={size} style={{ transform: 'rotate(-90deg)' }}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#e8f5e9" strokeWidth="4"/>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#2d6a4f" strokeWidth="4"
-        strokeDasharray={circ} strokeDashoffset={circ * (1 - pct)} strokeLinecap="round"/>
-    </svg>
-  );
-};
-
-const BarFill = ({ score, max = 10 }: { score: number; max?: number }) => (
-  <div style={{ flex: 1, height: 6, background: '#e8f5e9', borderRadius: 3, overflow: 'hidden' }}>
-    <div style={{ width: `${(score / max) * 100}%`, height: '100%', background: '#2d6a4f', borderRadius: 3 }}/>
-  </div>
-);
 
 const ShieldIcon = () => (
   <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
@@ -135,11 +77,8 @@ const ReturnIcon = () => (
 export default function ProductDetailClient({ product, store, storeName, availableStock, savings }: Props) {
   const [activeImg, setActiveImg] = useState(0);
   const [imgLoaded, setImgLoaded] = useState(false);
-  const [storyOpen, setStoryOpen] = useState(false);
-  const storyRef = useRef<HTMLDivElement>(null);
 
   const images = product.images && product.images.length > 0 ? product.images : [];
-  const ss = product.story_score;
 
   const trustBadges = [
     { icon: <ShieldIcon />, title: 'Authentic', desc: 'Verified by our experts for authenticity and quality.' },
@@ -221,7 +160,7 @@ export default function ProductDetailClient({ product, store, storeName, availab
             {product.name}
           </h1>
 
-          {/* Price + Story badge */}
+          {/* Price */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, flexWrap: 'wrap' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <span style={{ fontSize: 26, fontWeight: 700, color: '#0D0D0D' }}>{formatINR(product.price)}</span>
@@ -232,20 +171,6 @@ export default function ProductDetailClient({ product, store, storeName, availab
                 </>
               )}
             </div>
-
-            {ss && (
-              <button
-                onClick={() => {
-                  setStoryOpen(o => !o);
-                  setTimeout(() => storyRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 100);
-                }}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, background: '#d8f3dc', padding: '5px 14px', borderRadius: 20, cursor: 'pointer', border: '1px solid #b7e4c7' }}
-                className="story-badge-btn">
-                <LeafIcon />
-                <span style={{ fontSize: 14, fontWeight: 600, color: '#1b4332' }}>{ss.total}</span>
-                <span style={{ fontSize: 12, color: '#2d6a4f', fontWeight: 500 }}>Story Score</span>
-              </button>
-            )}
           </div>
 
           {/* Size */}
@@ -336,108 +261,6 @@ export default function ProductDetailClient({ product, store, storeName, availab
             </div>
           </div>
 
-          {/* ── STORY SCORE ────────────────────────────────────────── */}
-          {ss && (
-            <div ref={storyRef} style={{ background: 'linear-gradient(135deg, #f0faf1 0%, #d8f3dc 100%)', border: '1px solid #b7e4c7', borderRadius: 12, overflow: 'hidden', marginBottom: 24 }}>
-
-              {/* Header */}
-              <button
-                onClick={() => setStoryOpen(o => !o)}
-                style={{ width: '100%', padding: '18px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', background: 'none', border: 'none', textAlign: 'left' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                  {/* Score ring */}
-                  <div style={{ position: 'relative', width: 52, height: 52, flexShrink: 0 }}>
-                    <ScoreRing score={ss.total} />
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-                      <span style={{ fontSize: 15, fontWeight: 700, color: '#1b4332', lineHeight: 1 }}>{ss.total}</span>
-                      <span style={{ fontSize: 8, color: '#2d6a4f', fontWeight: 500 }}>/10</span>
-                    </div>
-                  </div>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                      <span style={{ fontSize: 15, fontWeight: 600, color: '#1b4332' }}>Story Score</span>
-                      <StarIcon />
-                    </div>
-                    {ss.tags && ss.tags.length > 0 && (
-                      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        {ss.tags.slice(0, 3).map(t => (
-                          <span key={t} style={{ fontSize: 10, padding: '2px 8px', borderRadius: 12, background: '#b7e4c7', color: '#1b4332', fontWeight: 500 }}>{t}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div style={{ color: '#2d6a4f', flexShrink: 0 }}>
-                  <ChevronDown open={storyOpen} />
-                </div>
-              </button>
-
-              {/* Expandable body */}
-              <div style={{ maxHeight: storyOpen ? 600 : 0, overflow: 'hidden', transition: 'max-height 0.4s ease' }}>
-                <div style={{ padding: '0 20px 20px', borderTop: '1px solid #b7e4c7' }}>
-
-                  {/* Score breakdown */}
-                  {ss.breakdown && ss.breakdown.length > 0 && (
-                    <div style={{ paddingTop: 16, marginBottom: 20 }}>
-                      <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#2d6a4f', marginBottom: 10 }}>
-                        Score breakdown
-                      </p>
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                        {ss.breakdown.map(b => (
-                          <div key={b.label} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <span style={{ fontSize: 12, color: '#1b4332', width: 130, flexShrink: 0, fontWeight: 500 }}>{b.label}</span>
-                            <BarFill score={b.score} />
-                            <span style={{ fontSize: 12, fontWeight: 600, color: '#1b4332', width: 32, textAlign: 'right' }}>{b.score}/10</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Timeline */}
-                  {ss.timeline && ss.timeline.length > 0 && (
-                    <div style={{ marginBottom: 16 }}>
-                      <p style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#2d6a4f', marginBottom: 12 }}>
-                        Item journey
-                      </p>
-                      {ss.timeline.map((item, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 12, paddingBottom: i < (ss.timeline?.length ?? 0) - 1 ? 14 : 0 }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0 }}>
-                            <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#2d6a4f', border: '2px solid #1b4332', zIndex: 1 }}/>
-                            {i < (ss.timeline?.length ?? 0) - 1 && (
-                              <div style={{ width: 2, flex: 1, background: '#95d5b2', marginTop: 2 }}/>
-                            )}
-                          </div>
-                          <div style={{ paddingBottom: 2 }}>
-                            <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#52b788', marginBottom: 2 }}>{item.label}</p>
-                            <p style={{ fontSize: 13, color: '#1b4332', lineHeight: 1.5 }}>{item.text}</p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Vendor note */}
-                  {ss.vendorNote && (
-                    <div style={{ background: '#b7e4c7', borderRadius: 8, padding: '12px 16px', marginBottom: 14 }}>
-                      <p style={{ fontSize: 10, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#2d6a4f', marginBottom: 4 }}>Vendor note</p>
-                      <p style={{ fontSize: 12, color: '#1b4332', lineHeight: 1.6, fontStyle: 'italic' }}>&ldquo;{ss.vendorNote}&rdquo;</p>
-                    </div>
-                  )}
-
-                  {/* Tags */}
-                  {ss.tags && ss.tags.length > 0 && (
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                      {ss.tags.map(t => (
-                        <span key={t} style={{ fontSize: 11, padding: '4px 12px', borderRadius: 14, background: '#fff', color: '#1b4332', fontWeight: 500, border: '1px solid #95d5b2' }}>{t}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Campus note */}
           <div style={{ background: '#fff', border: '1px solid #e8e6e1', borderRadius: 8, padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 12 }}>
             <div style={{ width: 36, height: 36, borderRadius: '50%', background: '#FAF8F4', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #e8e6e1' }}>
@@ -463,9 +286,7 @@ export default function ProductDetailClient({ product, store, storeName, availab
             padding-right: 0 !important;
           }
         }
-        .story-badge-btn:hover {
-          background: #b7e4c7 !important;
-        }
+
       `}</style>
     </div>
   );

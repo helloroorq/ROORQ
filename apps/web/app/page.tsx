@@ -40,15 +40,6 @@ const PROMO_SLIDES = [
     image: 'https://images.unsplash.com/photo-1523398002811-999ca8dec234?auto=format&fit=crop&w=1400&q=80',
   },
   {
-    title: 'Every piece has a verified Story Score.',
-    subtitle: 'Only on Roorq',
-    description:
-      'Origin. Era. Brand. Culture. Condition — each rated 1 to 10 by our team. Not just thrift. Story-Scored vintage.',
-    href: '/shop',
-    cta: 'See how it works',
-    image: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?auto=format&fit=crop&w=1400&q=80',
-  },
-  {
     title: 'Got pieces with a story? List them here.',
     subtitle: 'Seller growth',
     description:
