@@ -7,7 +7,8 @@
       "Bash(xargs grep -l \"roll\\\\|IIT\")",
       "PowerShell(cmd /c \"dir /a /s /b \"\"C:\\\\Users\\\\nenav\\\\OneDrive\\\\Desktop\\\\roorq-final\\\\roorq-live\\\\apps\\\\vendor-app\\\\lib\"\"\")",
       "PowerShell(cmd /c \"dir /a /s /b \"\"C:\\\\Users\\\\nenav\\\\OneDrive\\\\Desktop\\\\roorq-final\\\\roorq-live\\\\apps\\\\vendor-app\\\\src\\\\constants\"\"\")",
-      "PowerShell(cmd /c \"dir /a /s /b \"\"C:\\\\Users\\\\nenav\\\\OneDrive\\\\Desktop\\\\roorq-final\\\\roorq-live\\\\apps\\\\vendor-app\\\\src\\\\components\\\\common\"\"\")"
+      "PowerShell(cmd /c \"dir /a /s /b \"\"C:\\\\Users\\\\nenav\\\\OneDrive\\\\Desktop\\\\roorq-final\\\\roorq-live\\\\apps\\\\vendor-app\\\\src\\\\components\\\\common\"\"\")",
+      "mcp__claude_ai_Supabase__list_tables"
     ]
   },
   "disabledMcpjsonServers": [
