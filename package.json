@@ -10,7 +10,7 @@
     "dev": "npm run dev --workspace=apps/web",
     "build": "npm run build --workspace=apps/web",
     "start": "npm run start --workspace=apps/web",
-    "dev:vendor": "npm run start --workspace=apps/vendor-app",
+    "dev:vendor": "npm run dev --workspace=apps/vendor-app",
     "lint": "npm run lint --workspace=apps/web"
   }
 }

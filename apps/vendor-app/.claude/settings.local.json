@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx expo *)",
+      "Bash(Read \"C:\\\\Users\\\\nenav\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-nenav-OneDrive-Desktop-roorq-final-roorq-live-apps-vendor-app\\\\70595ee0-aa51-4a39-a06d-4812f9a3cf0e\\\\tasks\\\\bpotfxawf.output\")",
+      "PowerShell(npm install *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\nenav\\\\OneDrive\\\\Desktop\\\\roorq-final\\\\roorq-live\\\\apps\\\\vendor-app\" -Recurse -File | Where-Object { $_.FullName -notmatch \"node_modules\" } | Select-Object -ExpandProperty FullName)"
+    ]
+  }
+}
