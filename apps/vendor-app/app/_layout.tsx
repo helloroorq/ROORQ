@@ -12,6 +12,7 @@ export default function RootLayout() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="list-item"    options={{ presentation: 'fullScreenModal' }} />
         <Stack.Screen name="story-score"  options={{ presentation: 'fullScreenModal' }} />
+        <Stack.Screen name="settings" />
       </Stack>
     </SafeAreaProvider>
   )

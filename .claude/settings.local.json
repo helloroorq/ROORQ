@@ -4,7 +4,10 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\nenav\\\\OneDrive\\\\Desktop\\\\roorq-final\\\\roorq-live\" -Filter \"*vendor*\" -Recurse -File)",
       "Bash(Select-Object FullName)",
       "Bash(xargs grep -l \"IIT\\\\|IITR\\\\|roll\")",
-      "Bash(xargs grep -l \"roll\\\\|IIT\")"
+      "Bash(xargs grep -l \"roll\\\\|IIT\")",
+      "PowerShell(cmd /c \"dir /a /s /b \"\"C:\\\\Users\\\\nenav\\\\OneDrive\\\\Desktop\\\\roorq-final\\\\roorq-live\\\\apps\\\\vendor-app\\\\lib\"\"\")",
+      "PowerShell(cmd /c \"dir /a /s /b \"\"C:\\\\Users\\\\nenav\\\\OneDrive\\\\Desktop\\\\roorq-final\\\\roorq-live\\\\apps\\\\vendor-app\\\\src\\\\constants\"\"\")",
+      "PowerShell(cmd /c \"dir /a /s /b \"\"C:\\\\Users\\\\nenav\\\\OneDrive\\\\Desktop\\\\roorq-final\\\\roorq-live\\\\apps\\\\vendor-app\\\\src\\\\components\\\\common\"\"\")"
     ]
   },
   "disabledMcpjsonServers": [
